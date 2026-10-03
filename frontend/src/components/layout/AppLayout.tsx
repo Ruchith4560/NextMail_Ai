@@ -4,10 +4,17 @@ import { Header } from './Header';
 import { InboxView } from '../../features/mail/InboxView';
 import { ThreadView } from '../../features/mail/ThreadView';
 import { ComposeModal } from '../../features/mail/ComposeModal';
+import { AuthModal } from '../auth/AuthModal';
 import { useMailStore } from '../../store/mailStore';
+import { useAuthStore } from '../../store/authStore';
 
 export const AppLayout: React.FC = () => {
   const { setComposeOpen, threads, selectedThreadId, setSelectedThreadId } = useMailStore();
+  const { checkAuth } = useAuthStore();
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   // Keyboard shortcut listener ('c' for compose, 'j'/'k' for navigation)
   useEffect(() => {
@@ -50,6 +57,7 @@ export const AppLayout: React.FC = () => {
         </main>
       </div>
       <ComposeModal />
+      <AuthModal />
     </div>
   );
 };

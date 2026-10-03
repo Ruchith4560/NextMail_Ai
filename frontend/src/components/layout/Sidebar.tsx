@@ -10,9 +10,12 @@ import {
   ShieldCheck, 
   Lock, 
   Plus,
-  Sparkles
+  Sparkles,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 import { useMailStore } from '../../store/mailStore';
+import { useAuthStore } from '../../store/authStore';
 import { MailboxFolder } from '../../types/mail';
 
 interface NavItem {
@@ -34,6 +37,16 @@ const NAV_ITEMS: NavItem[] = [
 
 export const Sidebar: React.FC = () => {
   const { currentFolder, setCurrentFolder, setComposeOpen } = useMailStore();
+  const { user, isAuthenticated, logout, setAuthModalOpen } = useAuthStore();
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
 
   return (
     <aside className="w-64 bg-background-secondary border-r border-surface-border flex flex-col justify-between p-3 select-none">
@@ -122,18 +135,36 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Account / Health Footer */}
+      {/* Account / Session Footer */}
       <div className="pt-3 border-t border-surface-border">
-        <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md bg-surface/50 border border-surface-border">
-          <div className="w-7 h-7 rounded-full bg-primary-600/30 text-primary-300 border border-primary-500/30 flex items-center justify-center font-bold text-xs">
-            AR
+        {isAuthenticated && user ? (
+          <div className="flex items-center justify-between p-2 rounded-lg bg-surface/50 border border-surface-border">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-primary-600/30 text-primary-300 border border-primary-500/30 flex items-center justify-center font-bold text-xs">
+                {getInitials(user.fullName || user.email)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-white truncate">{user.fullName || 'User'}</p>
+                <p className="text-[10px] text-slate-400 truncate font-mono">{user.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => logout()}
+              title="Logout session"
+              className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-surface transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white truncate">Alex Rivera</p>
-            <p className="text-[10px] text-slate-400 truncate">alex.r@nextmail.local</p>
-          </div>
-          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="System Online" />
-        </div>
+        ) : (
+          <button
+            onClick={() => setAuthModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 bg-surface hover:bg-surface-hover text-slate-200 border border-surface-border font-medium text-xs py-2 px-3 rounded-lg transition-colors"
+          >
+            <LogIn className="w-3.5 h-3.5 text-primary-400" />
+            <span>Sign In / Register</span>
+          </button>
+        )}
       </div>
     </aside>
   );
