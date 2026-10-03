@@ -21,8 +21,21 @@ class ApiClient {
     return headers;
   }
 
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+  async get<T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>): Promise<ApiResponse<T>> {
+    let url = `${BASE_URL}${endpoint}`;
+    if (params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) {
+          searchParams.append(key, String(val));
+        }
+      });
+      const qs = searchParams.toString();
+      if (qs) {
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+    }
+    const res = await fetch(url, {
       method: 'GET',
       headers: this.getHeaders(),
     });

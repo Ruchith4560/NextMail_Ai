@@ -21,4 +21,18 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     Page<Message> findByUserIdAndFolderOrderByReceivedAtDesc(UUID userId, MailFolder folder, Pageable pageable);
 
     Optional<Message> findByIdAndUserId(UUID id, UUID userId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM Message m WHERE m.userId = :userId " +
+            "AND (:folder IS NULL OR m.folder = :folder) " +
+            "AND (:query IS NULL OR :query = '' OR " +
+            "     LOWER(m.subject) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "     LOWER(m.bodyText) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "     LOWER(m.senderEmail) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "     LOWER(m.senderName) LIKE LOWER(CONCAT('%', :query, '%'))) " +
+            "ORDER BY m.receivedAt DESC")
+    Page<Message> searchFallback(
+            @org.springframework.data.repository.query.Param("userId") UUID userId,
+            @org.springframework.data.repository.query.Param("query") String query,
+            @org.springframework.data.repository.query.Param("folder") MailFolder folder,
+            Pageable pageable);
 }

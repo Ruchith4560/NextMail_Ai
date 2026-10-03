@@ -50,11 +50,44 @@ interface PageResponse<T> {
   number: number;
 }
 
+export interface SearchResultDTO {
+  messageId: string;
+  threadId: string;
+  subject: string;
+  snippet: string;
+  highlightedSnippet: string;
+  senderEmail: string;
+  senderName: string;
+  recipientEmails: string[];
+  folder: string;
+  labels: string[];
+  hasAttachments: boolean;
+  isStarred: boolean;
+  isRead: boolean;
+  isControlled: boolean;
+  receivedAt: string;
+  score: number;
+}
+
+interface SearchPageResponse {
+  content: SearchResultDTO[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  executedByEngine: string;
+}
+
 interface MailState {
   currentFolder: MailboxFolder;
   selectedThreadId: string | null;
   threads: EmailThread[];
   searchQuery: string;
+  searchResults: SearchResultDTO[];
+  isSearching: boolean;
+  searchEngine: string | null;
+  searchTotal: number;
   isComposeOpen: boolean;
   isAIThinking: boolean;
   isLoadingThreads: boolean;
@@ -63,6 +96,8 @@ interface MailState {
   setSelectedThreadId: (id: string | null) => void;
   setThreads: (threads: EmailThread[]) => void;
   setSearchQuery: (query: string) => void;
+  searchEmails: (query: string, folder?: string) => Promise<void>;
+  clearSearch: () => void;
   setComposeOpen: (isOpen: boolean) => void;
   
   fetchThreads: (folder?: MailboxFolder) => Promise<void>;
@@ -239,6 +274,10 @@ export const useMailStore = create<MailState>((set, get) => ({
   selectedThreadId: 'thread-1',
   threads: INITIAL_DEMO_THREADS,
   searchQuery: '',
+  searchResults: [],
+  isSearching: false,
+  searchEngine: null,
+  searchTotal: 0,
   isComposeOpen: false,
   isAIThinking: false,
   isLoadingThreads: false,
@@ -254,7 +293,84 @@ export const useMailStore = create<MailState>((set, get) => ({
     }
   },
   setThreads: (threads) => set({ threads }),
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setSearchQuery: (query) => {
+    set({ searchQuery: query });
+    if (!query || query.trim() === '') {
+      get().clearSearch();
+    } else {
+      get().searchEmails(query);
+    }
+  },
+
+  searchEmails: async (query, folder) => {
+    if (!query || query.trim() === '') {
+      set({ searchResults: [], isSearching: false, searchEngine: null, searchTotal: 0 });
+      return;
+    }
+
+    set({ isSearching: true });
+    const token = localStorage.getItem('nextmail_token');
+    if (token) {
+      try {
+        const params: Record<string, string> = { q: query.trim() };
+        if (folder) params.folder = folder;
+
+        const res = await apiClient.get<SearchPageResponse>('/search', params);
+        if (res.data?.content) {
+          set({
+            searchResults: res.data.content,
+            searchEngine: res.data.executedByEngine,
+            searchTotal: res.data.totalElements,
+            isSearching: false,
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn('Backend search API failed, falling back to local thread filtering', err);
+      }
+    }
+
+    // Client fallback search for demo mode
+    const q = query.toLowerCase();
+    const filtered = get().threads.filter(
+      (t) =>
+        t.subject.toLowerCase().includes(q) ||
+        t.snippet.toLowerCase().includes(q)
+    );
+    const mockResults: SearchResultDTO[] = filtered.map((t) => ({
+      messageId: t.id,
+      threadId: t.id,
+      subject: t.subject,
+      snippet: t.snippet,
+      highlightedSnippet: t.snippet.replace(
+        new RegExp(`(${query})`, 'gi'),
+        '<mark class="bg-amber-400/25 text-amber-200 px-0.5 rounded">$1</mark>'
+      ),
+      senderEmail: 'colleague@nextmail.local',
+      senderName: 'NextMail Workspace',
+      recipientEmails: ['me@nextmail.local'],
+      folder: 'INBOX',
+      labels: t.labels || [],
+      hasAttachments: t.hasAttachments,
+      isStarred: t.isStarred,
+      isRead: t.isRead,
+      isControlled: false,
+      receivedAt: new Date().toISOString(),
+      score: 1.0,
+    }));
+
+    set({
+      searchResults: mockResults,
+      searchEngine: 'CLIENT_FALLBACK',
+      searchTotal: mockResults.length,
+      isSearching: false,
+    });
+  },
+
+  clearSearch: () => {
+    set({ searchQuery: '', searchResults: [], isSearching: false, searchEngine: null, searchTotal: 0 });
+  },
+
   setComposeOpen: (isComposeOpen) => set({ isComposeOpen }),
 
   fetchThreads: async (folder) => {
