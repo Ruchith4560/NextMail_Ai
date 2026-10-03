@@ -14,9 +14,12 @@ import {
   HelpCircle,
   ArrowRight,
   Bot,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Download
 } from 'lucide-react';
 import { useMailStore } from '../../store/mailStore';
+import { AttachmentMetadata } from '../../types/mail';
+
 
 export const ThreadView: React.FC = () => {
   const { 
@@ -93,8 +96,39 @@ export const ThreadView: React.FC = () => {
     }
   };
 
+  const handleDownloadAttachment = async (att: AttachmentMetadata) => {
+    try {
+      const token = localStorage.getItem('nextmail_token');
+      const res = await fetch(`/api/v1/attachments/${att.id}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        throw new Error(`Download failed with status ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = att.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Failed to download attachment. Please verify your authentication.');
+    }
+  };
+
+  const formatAttachmentSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
   return (
     <div className="flex-1 bg-background flex flex-col h-full overflow-hidden select-none">
+
       {/* Sticky Thread Action Header */}
       <div className="p-3 bg-background-secondary border-b border-surface-border flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
@@ -271,17 +305,21 @@ export const ThreadView: React.FC = () => {
                   {msg.attachments.map((att) => (
                     <div
                       key={att.id}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background border border-surface-border text-xs text-slate-300 hover:border-primary-500/50 cursor-pointer transition-colors"
+                      onClick={() => handleDownloadAttachment(att)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background border border-surface-border text-xs text-slate-300 hover:border-primary-500 hover:text-white cursor-pointer transition-all group"
+                      title="Click to download attachment"
                     >
-                      <Paperclip className="w-3.5 h-3.5 text-primary-400" />
+                      <Paperclip className="w-3.5 h-3.5 text-primary-400 group-hover:scale-110 transition-transform" />
                       <span className="font-medium text-[11px]">{att.filename}</span>
                       <span className="text-[10px] text-slate-400 font-mono">
-                        ({(att.sizeBytes / 1024 / 1024).toFixed(1)} MB)
+                        ({formatAttachmentSize(att.sizeBytes)})
                       </span>
+                      <Download className="w-3 h-3 text-slate-400 group-hover:text-primary-400 ml-1 transition-colors" />
                     </div>
                   ))}
                 </div>
               )}
+
             </div>
           ))}
         </div>

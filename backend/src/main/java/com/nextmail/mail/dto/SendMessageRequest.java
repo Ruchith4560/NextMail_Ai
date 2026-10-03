@@ -39,4 +39,8 @@ public class SendMessageRequest {
     // NextMail Controlled Envelope policies
     private boolean isControlled;
     private Integer expiryHours;
+
+    // Optional attached file IDs
+    private List<UUID> attachmentIds;
 }
+

@@ -19,6 +19,20 @@ interface ThreadApiResponse {
   priorityReason: string;
 }
 
+export interface AttachmentApiResponse {
+  id: string;
+  messageId?: string;
+  filename: string;
+  declaredContentType?: string;
+  detectedContentType: string;
+  sizeBytes: number;
+  sha256: string;
+  storageEngine: string;
+  scanStatus: string;
+  isInline: boolean;
+  createdAt: string;
+}
+
 interface MessageApiResponse {
   id: string;
   threadId: string;
@@ -37,11 +51,13 @@ interface MessageApiResponse {
   expiresAt?: string;
   hasAttachments: boolean;
   recipients: Array<{ type: string; email: string; name?: string }>;
+  attachments?: AttachmentApiResponse[];
 }
 
 interface ThreadDetailApiResponse extends ThreadApiResponse {
   messages: MessageApiResponse[];
 }
+
 
 interface PageResponse<T> {
   content: T[];
@@ -139,12 +155,15 @@ interface MailState {
     threadId?: string;
     isControlled?: boolean;
     expiryHours?: number;
+    attachmentIds?: string[];
   }) => Promise<boolean>;
+  uploadAttachment: (file: File, messageId?: string) => Promise<AttachmentApiResponse | null>;
   toggleStar: (threadId: string) => Promise<void>;
   markAsRead: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   trashThread: (threadId: string) => Promise<void>;
 }
+
 
 // Initial demonstration data for high-fidelity SaaS presentation
 const INITIAL_DEMO_THREADS: EmailThread[] = [
@@ -465,7 +484,15 @@ export const useMailStore = create<MailState>((set, get) => ({
           isStarred: m.isStarred,
           isControlled: m.isControlled,
           expiresAt: m.expiresAt,
-          attachments: [],
+          attachments: (m.attachments || []).map((att) => ({
+            id: att.id,
+            filename: att.filename,
+            contentType: att.detectedContentType || att.declaredContentType || 'application/octet-stream',
+            sizeBytes: att.sizeBytes,
+            sha256: att.sha256,
+            storageEngine: att.storageEngine,
+            isMalicious: att.scanStatus === 'INFECTED',
+          })),
           securityFlags: {
             isPhishingRisk: false,
             spfValid: true,
@@ -485,6 +512,28 @@ export const useMailStore = create<MailState>((set, get) => ({
     }
   },
 
+  uploadAttachment: async (file: File, messageId?: string) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) {
+      alert('Please sign in to upload attachments');
+      return null;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (messageId) {
+        formData.append('messageId', messageId);
+      }
+      const res = await apiClient.upload<AttachmentApiResponse>('/attachments/upload', formData);
+      return res.data;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      alert(msg);
+      return null;
+    }
+  },
+
   sendMessage: async (payload) => {
     const token = localStorage.getItem('nextmail_token');
     if (!token) {
@@ -500,6 +549,7 @@ export const useMailStore = create<MailState>((set, get) => ({
         threadId: payload.threadId && !payload.threadId.startsWith('thread-') ? payload.threadId : undefined,
         isControlled: payload.isControlled || false,
         expiryHours: payload.expiryHours || 48,
+        attachmentIds: payload.attachmentIds,
       });
 
       // Refresh threads from backend
@@ -511,6 +561,7 @@ export const useMailStore = create<MailState>((set, get) => ({
       return false;
     }
   },
+
 
   toggleStar: async (threadId) => {
     // Optimistic UI update

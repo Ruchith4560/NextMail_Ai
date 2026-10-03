@@ -43,3 +43,6 @@ nextmail:
       api-key: ""
       model: "gemini-1.5-flash"
       temperature: 0.2
+  storage:
+    type: "local"
+    local-dir: "target/test-attachments"

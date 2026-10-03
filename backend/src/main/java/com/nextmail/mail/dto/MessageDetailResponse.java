@@ -2,6 +2,7 @@ package com.nextmail.mail.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nextmail.mail.MailFolder;
+import com.nextmail.attachment.dto.AttachmentResponseDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -47,4 +48,6 @@ public class MessageDetailResponse {
     private boolean hasAttachments;
 
     private List<MessageRecipientDTO> recipients;
+    private List<AttachmentResponseDTO> attachments;
 }
+

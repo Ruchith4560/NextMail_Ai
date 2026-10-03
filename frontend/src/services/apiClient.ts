@@ -79,6 +79,28 @@ class ApiClient {
     }
     return res.json();
   }
+
+  async upload<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+    };
+    const token = localStorage.getItem('nextmail_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      const msg = errJson?.message || `API upload ${endpoint} failed with status ${res.status}`;
+      throw new Error(msg);
+    }
+    return res.json();
+  }
 }
 
 export const apiClient = new ApiClient();
+

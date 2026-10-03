@@ -29,6 +29,7 @@ public class MailService {
     private final DraftRepository draftRepository;
     private final JwzThreadingService threadingService;
     private final com.nextmail.mail.ingest.SmtpOutboundDeliveryService smtpDeliveryService;
+    private final com.nextmail.attachment.AttachmentService attachmentService;
 
     @Transactional(readOnly = true)
     public Page<ThreadSummaryResponse> getThreads(UUID userId, MailFolder folder, int page, int size) {
@@ -153,6 +154,15 @@ public class MailService {
         Message savedMessage = messageRepository.save(message);
         log.info("Saved outbound message {} in thread {}", savedMessage.getId(), thread.getId());
 
+        // Link any uploaded attachments
+        if (request.getAttachmentIds() != null && !request.getAttachmentIds().isEmpty()) {
+            attachmentService.linkAttachmentsToMessage(request.getAttachmentIds(), savedMessage.getId());
+            savedMessage.setHasAttachments(true);
+            messageRepository.save(savedMessage);
+            thread.setHasAttachments(true);
+            threadRepository.save(thread);
+        }
+
         // Dispatch outbound SMTP asynchronously (fails gracefully if SMTP host is offline in local dev)
         smtpDeliveryService.dispatchSmtpMessage(
                 userEmail,
@@ -170,6 +180,7 @@ public class MailService {
 
         return mapToMessageDetail(savedMessage);
     }
+
 
     @Transactional
     public void markThreadRead(UUID userId, UUID threadId, boolean isRead) {
@@ -256,6 +267,9 @@ public class MailService {
     }
 
     private MessageDetailResponse mapToMessageDetail(Message message) {
+        List<com.nextmail.attachment.dto.AttachmentResponseDTO> attachments =
+                attachmentService.getAttachmentsByMessage(message.getId());
+
         return MessageDetailResponse.builder()
                 .id(message.getId())
                 .threadId(message.getThreadId())
@@ -274,7 +288,7 @@ public class MailService {
                 .isControlled(message.isControlled())
                 .expiresAt(message.getExpiresAt())
                 .folder(message.getFolder())
-                .hasAttachments(message.isHasAttachments())
+                .hasAttachments(message.isHasAttachments() || (attachments != null && !attachments.isEmpty()))
                 .recipients(message.getRecipients().stream()
                         .map(r -> MessageRecipientDTO.builder()
                                 .type(r.getType())
@@ -282,6 +296,8 @@ public class MailService {
                                 .name(r.getName())
                                 .build())
                         .toList())
+                .attachments(attachments)
                 .build();
     }
 }
+

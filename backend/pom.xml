@@ -109,6 +109,24 @@
             <version>${tika.version}</version>
         </dependency>
 
+        <!-- AWS S3 & MinIO Object Storage -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.25.16</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>2.25.16</version>
+        </dependency>
+
         <!-- Developer Tools & Boilerplate -->
         <dependency>
             <groupId>org.projectlombok</groupId>
