@@ -1,0 +1,199 @@
+import { create } from 'zustand';
+import { MailboxFolder, EmailThread } from '../types/mail';
+
+interface MailState {
+  currentFolder: MailboxFolder;
+  selectedThreadId: string | null;
+  threads: EmailThread[];
+  searchQuery: string;
+  isComposeOpen: boolean;
+  isAIThinking: boolean;
+
+  setCurrentFolder: (folder: MailboxFolder) => void;
+  setSelectedThreadId: (id: string | null) => void;
+  setThreads: (threads: EmailThread[]) => void;
+  setSearchQuery: (query: string) => void;
+  setComposeOpen: (isOpen: boolean) => void;
+  toggleStar: (threadId: string) => void;
+  markAsRead: (threadId: string) => void;
+}
+
+// Initial demonstration data for high-fidelity SaaS presentation
+const INITIAL_DEMO_THREADS: EmailThread[] = [
+  {
+    id: 'thread-1',
+    subject: 'Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy',
+    snippet: 'Sarah Jenkins: The final architecture review for the AWS to hybrid-cloud migration is scheduled. Please review the attached failover runbook before Thursday...',
+    messageCount: 4,
+    hasAttachments: true,
+    lastMessageAt: '10:42 AM',
+    isRead: false,
+    isStarred: true,
+    priorityTier: 'URGENT',
+    priorityScore: 0.94,
+    priorityReason: 'Identified upcoming deadline (Thursday) and architectural sign-off requested from Engineering Leadership.',
+    labels: ['Engineering', 'Architecture', 'Q4'],
+    aiSummary: {
+      overview: 'Thread focuses on approving the final zero-downtime database failover procedures for the upcoming Q4 infrastructure migration.',
+      decisions: [
+        'PostgreSQL replication will operate in semi-synchronous mode with Patroni.',
+        'DNS TTL reduced from 3600s to 60s ahead of the cutover window.'
+      ],
+      actionItems: [
+        'Review failover runbook v2.4 before Thursday 17:00 EST.',
+        'Confirm standby replica provisioning in us-east-2.'
+      ],
+      unresolvedQuestions: [
+        'Do we need secondary S3 bucket replication for compliance logs?'
+      ],
+      deadlines: ['Thursday, Oct 8 at 5:00 PM EST']
+    },
+    messages: [
+      {
+        id: 'msg-1-1',
+        threadId: 'thread-1',
+        sender: { name: 'Sarah Jenkins (Principal DevOps)', email: 'sarah.j@acme-systems.cloud' },
+        recipients: [{ name: 'Alex Rivera (Staff Architect)', email: 'alex.r@nextmail.local' }],
+        subject: 'Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy',
+        snippet: 'The final architecture review for the AWS to hybrid-cloud migration is scheduled...',
+        bodyText: `Alex,\n\nThe final architecture review for the AWS to hybrid-cloud migration is scheduled for Thursday. We've updated the runbook based on last week's chaos engineering results.\n\nPlease review the database failover section (pages 8-14) and verify that our virtual thread connection pooling won't overwhelm the PostgreSQL standby during failover.\n\nBest,\nSarah`,
+        sentAt: 'Yesterday, 4:15 PM',
+        receivedAt: 'Yesterday, 4:15 PM',
+        isRead: true,
+        isStarred: true,
+        attachments: [
+          { id: 'att-1', filename: 'failover_runbook_v2.4.pdf', contentType: 'application/pdf', sizeBytes: 2450000 }
+        ],
+        securityFlags: {
+          isPhishingRisk: false,
+          spfValid: true,
+          dkimValid: true,
+          suspiciousLinksCount: 0
+        }
+      },
+      {
+        id: 'msg-1-2',
+        threadId: 'thread-1',
+        sender: { name: 'Sarah Jenkins (Principal DevOps)', email: 'sarah.j@acme-systems.cloud' },
+        recipients: [{ name: 'Alex Rivera (Staff Architect)', email: 'alex.r@nextmail.local' }],
+        subject: 'Re: Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy',
+        snippet: 'Quick update: Standby replica provisioned in us-east-2. Need your sign-off by Thursday 5pm.',
+        bodyText: `Quick update:\n\nThe standby replica is now provisioned in us-east-2. We need your sign-off before Thursday 5:00 PM EST so the change management board can authorize the window.\n\nLet me know if you need any adjustments to the metrics dashboards.`,
+        sentAt: '10:42 AM',
+        receivedAt: '10:42 AM',
+        isRead: false,
+        isStarred: true,
+        attachments: [],
+        securityFlags: {
+          isPhishingRisk: false,
+          spfValid: true,
+          dkimValid: true,
+          suspiciousLinksCount: 0
+        }
+      }
+    ]
+  },
+  {
+    id: 'thread-2',
+    subject: 'Security Alert: Suspicious login attempt flagged via SSO Gateway',
+    snippet: 'NextMail SecOps: An anomalous login was detected from IP 185.220.101.5 (Tor Exit Node). Automated link quarantine engaged...',
+    messageCount: 1,
+    hasAttachments: false,
+    lastMessageAt: '09:15 AM',
+    isRead: false,
+    isStarred: false,
+    priorityTier: 'IMPORTANT',
+    priorityScore: 0.88,
+    priorityReason: 'SecOps automated alert with detected threat indicator.',
+    labels: ['Security', 'Alert'],
+    messages: [
+      {
+        id: 'msg-2-1',
+        threadId: 'thread-2',
+        sender: { name: 'SecOps Security Daemon', email: 'security-alerts@nextmail.local' },
+        recipients: [{ name: 'Alex Rivera', email: 'alex.r@nextmail.local' }],
+        subject: 'Security Alert: Suspicious login attempt flagged via SSO Gateway',
+        snippet: 'An anomalous login was detected from IP 185.220.101.5...',
+        bodyText: `Attention:\n\nOur real-time anomaly detection caught a failed login challenge from a known proxy/Tor exit node targeting your administrative alias.\n\nAction Taken: Two-Factor challenge was enforced and session creation was blocked. No credentials were breached.\n\nIf this was not you, please audit your active sessions in Settings > Security.`,
+        sentAt: '09:15 AM',
+        receivedAt: '09:15 AM',
+        isRead: false,
+        isStarred: false,
+        attachments: [],
+        securityFlags: {
+          isPhishingRisk: false,
+          spfValid: true,
+          dkimValid: true,
+          suspiciousLinksCount: 0
+        }
+      }
+    ]
+  },
+  {
+    id: 'thread-3',
+    subject: '[Controlled Message] Confidential: Series B Term Sheet & Governance Draft',
+    snippet: 'David Zhang (Venture Partner): Access granted under NextMail Controlled Envelope. This message is configured to expire in 48 hours...',
+    messageCount: 1,
+    hasAttachments: true,
+    lastMessageAt: 'Yesterday',
+    isRead: true,
+    isStarred: true,
+    priorityTier: 'IMPORTANT',
+    priorityScore: 0.82,
+    priorityReason: 'Confidential corporate governance document with 48h expiration timer.',
+    labels: ['Confidential', 'Finance'],
+    messages: [
+      {
+        id: 'msg-3-1',
+        threadId: 'thread-3',
+        sender: { name: 'David Zhang', email: 'david.zhang@apex-ventures.io' },
+        recipients: [{ name: 'Alex Rivera', email: 'alex.r@nextmail.local' }],
+        subject: '[Controlled Message] Confidential: Series B Term Sheet & Governance Draft',
+        snippet: 'This message is protected by NextMail Envelope Encryption...',
+        bodyText: `Alex,\n\nHere is the revised draft of the Series B term sheet with the updated valuation cap and board seat allocations.\n\n[Controlled Envelope Note]:\nThis document is protected with NextMail cryptographic envelope policies. Forwarding is disabled, download is restricted to verified hardware, and the link automatically revokes on Sunday at 23:59 UTC.`,
+        sentAt: 'Yesterday, 2:30 PM',
+        receivedAt: 'Yesterday, 2:30 PM',
+        isRead: true,
+        isStarred: true,
+        isControlled: true,
+        expiresAt: '2026-10-05T23:59:00Z',
+        attachments: [
+          { id: 'att-2', filename: 'Series_B_Term_Sheet_Confidential.pdf', contentType: 'application/pdf', sizeBytes: 890000 }
+        ],
+        securityFlags: {
+          isPhishingRisk: false,
+          spfValid: true,
+          dkimValid: true,
+          suspiciousLinksCount: 0
+        }
+      }
+    ]
+  }
+];
+
+export const useMailStore = create<MailState>((set) => ({
+  currentFolder: 'inbox',
+  selectedThreadId: 'thread-1',
+  threads: INITIAL_DEMO_THREADS,
+  searchQuery: '',
+  isComposeOpen: false,
+  isAIThinking: false,
+
+  setCurrentFolder: (folder) => set({ currentFolder: folder, selectedThreadId: null }),
+  setSelectedThreadId: (id) => set({ selectedThreadId: id }),
+  setThreads: (threads) => set({ threads }),
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setComposeOpen: (isComposeOpen) => set({ isComposeOpen }),
+
+  toggleStar: (threadId) => set((state) => ({
+    threads: state.threads.map((t) =>
+      t.id === threadId ? { ...t, isStarred: !t.isStarred } : t
+    ),
+  })),
+
+  markAsRead: (threadId) => set((state) => ({
+    threads: state.threads.map((t) =>
+      t.id === threadId ? { ...t, isRead: true } : t
+    ),
+  })),
+}));

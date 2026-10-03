@@ -1,0 +1,74 @@
+# NextMail AI - Git Ignore Specification
+
+# Environment & Secrets (NEVER COMMIT)
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.pfx
+secrets/
+*.log
+
+# Java & Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+*.class
+
+# Node & Frontend
+node_modules/
+dist/
+dist-ssr/
+build/
+.pnpm-store/
+.npm/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Vite & Vitest
+.vite/
+coverage/
+
+# Testing & Artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# IDE & Editors
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# OS Specific
+Thumbs.db
+Desktop.ini
+.DS_Store
+$RECYCLE.BIN/
+
+# Docker Local Data Volumes
+docker-data/
+minio-data/
+postgres-data/
+es-data/
+redis-data/
