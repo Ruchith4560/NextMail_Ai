@@ -28,6 +28,7 @@ public class MailService {
     private final MessageRepository messageRepository;
     private final DraftRepository draftRepository;
     private final JwzThreadingService threadingService;
+    private final com.nextmail.mail.ingest.SmtpOutboundDeliveryService smtpDeliveryService;
 
     @Transactional(readOnly = true)
     public Page<ThreadSummaryResponse> getThreads(UUID userId, MailFolder folder, int page, int size) {
@@ -151,6 +152,21 @@ public class MailService {
 
         Message savedMessage = messageRepository.save(message);
         log.info("Saved outbound message {} in thread {}", savedMessage.getId(), thread.getId());
+
+        // Dispatch outbound SMTP asynchronously (fails gracefully if SMTP host is offline in local dev)
+        smtpDeliveryService.dispatchSmtpMessage(
+                userEmail,
+                userName,
+                request.getTo(),
+                request.getCc(),
+                request.getBcc(),
+                request.getSubject(),
+                request.getBodyText(),
+                request.getBodyHtml(),
+                generatedMsgId,
+                inReplyTo,
+                references
+        );
 
         return mapToMessageDetail(savedMessage);
     }

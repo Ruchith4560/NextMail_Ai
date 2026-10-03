@@ -4,8 +4,21 @@ import { useMailStore } from '../../store/mailStore';
 import { apiClient } from '../../services/apiClient';
 
 export const Header: React.FC = () => {
-  const { searchQuery, setSearchQuery } = useMailStore();
+  const { searchQuery, setSearchQuery, fetchThreads } = useMailStore();
   const [backendStatus, setBackendStatus] = useState<'UP' | 'DOWN' | 'CHECKING'>('CHECKING');
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await apiClient.post('/mail/sync/imap');
+    } catch {
+      // Ignore if offline
+    } finally {
+      await fetchThreads();
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     const checkBackend = async () => {
@@ -47,6 +60,17 @@ export const Header: React.FC = () => {
 
       {/* Right Controls & Telemetry */}
       <div className="flex items-center gap-3">
+        {/* IMAP Sync Trigger */}
+        <button
+          onClick={handleSync}
+          disabled={isSyncing}
+          title="Trigger On-Demand IMAP Sync"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface hover:bg-surface-hover border border-surface-border text-xs text-slate-300 hover:text-white transition-all disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3 h-3 text-slate-400 ${isSyncing ? 'animate-spin text-primary-400' : ''}`} />
+          <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
+        </button>
+
         {/* Backend Connectivity Status */}
         <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface/80 border border-surface-border text-[11px] font-mono">
           {backendStatus === 'UP' ? (
