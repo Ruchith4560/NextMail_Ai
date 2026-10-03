@@ -15,10 +15,14 @@ import {
   ArrowRight,
   Bot,
   SlidersHorizontal,
-  Download
+  Download,
+  Bell,
+  Check,
+  X
 } from 'lucide-react';
 import { useMailStore } from '../../store/mailStore';
 import { AttachmentMetadata } from '../../types/mail';
+
 
 
 export const ThreadView: React.FC = () => {
@@ -32,7 +36,11 @@ export const ThreadView: React.FC = () => {
     threadSummaries,
     isLoadingSummary,
     fetchThreadSummary,
-    generateAiReply
+    generateAiReply,
+    activeThreadFollowUp,
+    createFollowUp,
+    snoozeFollowUp,
+    dismissFollowUp
   } = useMailStore();
 
   const [replyText, setReplyText] = useState('');
@@ -41,6 +49,14 @@ export const ThreadView: React.FC = () => {
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
   const [isDraftingAI, setIsDraftingAI] = useState(false);
   const [isSendingReply, setIsSendingReply] = useState(false);
+
+  // Smart Follow-Up Modal State
+  const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [followUpHours, setFollowUpHours] = useState(24);
+  const [autoCancelOnReply, setAutoCancelOnReply] = useState(true);
+  const [followUpNote, setFollowUpNote] = useState('');
+  const [isSchedulingFollowUp, setIsSchedulingFollowUp] = useState(false);
+
 
   const thread = threads.find((t) => t.id === selectedThreadId);
 
@@ -141,7 +157,22 @@ export const ThreadView: React.FC = () => {
           <h2 className="text-sm font-semibold text-white truncate">{thread.subject}</h2>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setIsFollowUpModalOpen(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+              activeThreadFollowUp
+                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                : 'bg-surface hover:bg-surface-hover text-slate-300 hover:text-white border border-surface-border'
+            }`}
+            title="Set Smart Follow-Up Reminder"
+          >
+            <Clock className={`w-3.5 h-3.5 ${activeThreadFollowUp ? 'text-amber-400' : 'text-slate-400'}`} />
+            <span className="hidden sm:inline">
+              {activeThreadFollowUp ? 'Follow-Up Active' : 'Follow-Up'}
+            </span>
+          </button>
+
           <button
             onClick={() => archiveThread(thread.id)}
             className="p-1.5 rounded-md hover:bg-surface-hover text-slate-400 hover:text-white transition-colors"
@@ -161,7 +192,49 @@ export const ThreadView: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Active Smart Follow-Up Alert Banner */}
+        {activeThreadFollowUp && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-200">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                <Bell className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-white flex items-center gap-1.5">
+                  <span>Smart Follow-Up Due:</span>
+                  <span className="text-amber-300 font-mono">
+                    {new Date(activeThreadFollowUp.dueAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </p>
+                <p className="text-[11px] text-amber-300/80">
+                  {activeThreadFollowUp.condition === 'NO_REPLY_RECEIVED'
+                    ? '⚡ Auto-cancels if recipient replies before deadline'
+                    : 'Unconditional scheduled reminder'}
+                  {activeThreadFollowUp.note ? ` • Note: "${activeThreadFollowUp.note}"` : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => snoozeFollowUp(activeThreadFollowUp.id, 24)}
+                className="px-2.5 py-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-[11px] font-medium text-amber-200 border border-amber-500/40 transition-colors"
+                title="Postpone reminder by 24 hours"
+              >
+                +24h Snooze
+              </button>
+              <button
+                onClick={() => dismissFollowUp(activeThreadFollowUp.id)}
+                className="p-1 rounded-md hover:bg-amber-500/20 text-amber-400 hover:text-white transition-colors"
+                title="Dismiss reminder"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* AI Executive Briefing / Summary Banner */}
+
         {isLoadingSummary ? (
           <div className="p-3.5 rounded-xl bg-surface/40 border border-accent-ai/20 animate-pulse flex items-center gap-3">
             <Sparkles className="w-4 h-4 text-accent-ai animate-spin" />
@@ -409,6 +482,110 @@ export const ThreadView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Smart Follow-Up Scheduling Modal */}
+      {isFollowUpModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-background-secondary border border-surface-border rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-4 py-2.5 bg-surface border-b border-surface-border flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-white">
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span>Schedule Smart Follow-Up</span>
+              </div>
+              <button
+                onClick={() => setIsFollowUpModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3.5 text-xs">
+              <p className="text-slate-300">
+                Choose when you want NextMail to nudge you if you have not received a response:
+              </p>
+
+              {/* Time Presets */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'In 24 Hours', hours: 24 },
+                  { label: 'In 48 Hours', hours: 48 },
+                  { label: 'Next Week', hours: 168 },
+                ].map((preset) => (
+                  <button
+                    key={preset.hours}
+                    type="button"
+                    onClick={() => setFollowUpHours(preset.hours)}
+                    className={`py-2 px-3 rounded-lg border text-center font-medium transition-colors ${
+                      followUpHours === preset.hours
+                        ? 'bg-primary-600/20 border-primary-500 text-white'
+                        : 'bg-surface border-surface-border text-slate-300 hover:bg-surface-hover'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Auto-cancel on reply toggle */}
+              <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-surface/50 border border-surface-border cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoCancelOnReply}
+                  onChange={(e) => setAutoCancelOnReply(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-600 bg-background text-primary-600 focus:ring-0"
+                />
+                <div>
+                  <p className="font-medium text-slate-200">Auto-cancel if reply arrives</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Automatically resolves reminder if any recipient responds to this thread before the deadline.
+                  </p>
+                </div>
+              </label>
+
+              {/* Custom Note */}
+              <div className="space-y-1">
+                <label className="text-[11px] text-slate-400">Reminder Note (optional):</label>
+                <input
+                  type="text"
+                  value={followUpNote}
+                  onChange={(e) => setFollowUpNote(e.target.value)}
+                  placeholder="e.g., Awaiting review on database failover runbook"
+                  className="w-full bg-background text-xs text-slate-200 placeholder-slate-500 px-3 py-1.5 rounded-lg border border-surface-border focus:outline-none focus:border-primary-500"
+                />
+              </div>
+            </div>
+
+            <div className="px-4 py-3 bg-surface border-t border-surface-border flex items-center justify-end gap-2">
+              <button
+                onClick={() => setIsFollowUpModalOpen(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsSchedulingFollowUp(true);
+                  await createFollowUp({
+                    threadId: thread.id,
+                    durationHours: followUpHours,
+                    condition: autoCancelOnReply ? 'NO_REPLY_RECEIVED' : 'ALWAYS_REMIND',
+                    note: followUpNote.trim() || undefined,
+                  });
+                  setIsSchedulingFollowUp(false);
+                  setIsFollowUpModalOpen(false);
+                  setFollowUpNote('');
+                }}
+                disabled={isSchedulingFollowUp}
+                className="bg-primary-600 hover:bg-primary-500 text-white font-medium text-xs px-4 py-1.5 rounded-lg shadow transition-colors"
+              >
+                {isSchedulingFollowUp ? 'Scheduling...' : 'Set Reminder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

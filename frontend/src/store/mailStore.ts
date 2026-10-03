@@ -121,6 +121,25 @@ export interface AiReplyResponse {
   modelUsed: string;
 }
 
+export type FollowUpStatus = 'PENDING' | 'TRIGGERED' | 'AUTO_RESOLVED' | 'SNOOZED' | 'DISMISSED';
+export type FollowUpCondition = 'NO_REPLY_RECEIVED' | 'ALWAYS_REMIND' | 'INBOX_ZERO_NUDGE';
+
+export interface FollowUpReminderDTO {
+  id: string;
+  userId: string;
+  threadId: string;
+  threadSubject?: string;
+  messageId?: string;
+  dueAt: string;
+  condition: FollowUpCondition;
+  status: FollowUpStatus;
+  note?: string;
+  originalLastMessageAt: string;
+  triggeredAt?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+
 interface MailState {
   currentFolder: MailboxFolder;
   selectedThreadId: string | null;
@@ -135,6 +154,8 @@ interface MailState {
   isLoadingThreads: boolean;
   threadSummaries: Record<string, AiSummaryResponse>;
   isLoadingSummary: boolean;
+  activeFollowUps: FollowUpReminderDTO[];
+  activeThreadFollowUp: FollowUpReminderDTO | null;
 
   setCurrentFolder: (folder: MailboxFolder) => void;
   setSelectedThreadId: (id: string | null) => void;
@@ -162,7 +183,14 @@ interface MailState {
   markAsRead: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   trashThread: (threadId: string) => Promise<void>;
+
+  fetchUserFollowUps: () => Promise<void>;
+  fetchThreadFollowUp: (threadId: string) => Promise<FollowUpReminderDTO | null>;
+  createFollowUp: (payload: { threadId: string; durationHours?: number; dueAt?: string; condition?: FollowUpCondition; note?: string }) => Promise<FollowUpReminderDTO | null>;
+  snoozeFollowUp: (id: string, additionalHours: number) => Promise<boolean>;
+  dismissFollowUp: (id: string) => Promise<boolean>;
 }
+
 
 
 // Initial demonstration data for high-fidelity SaaS presentation
@@ -332,20 +360,24 @@ export const useMailStore = create<MailState>((set, get) => ({
   isLoadingThreads: false,
   threadSummaries: {},
   isLoadingSummary: false,
+  activeFollowUps: [],
+  activeThreadFollowUp: null,
 
   setCurrentFolder: (folder) => {
     set({ currentFolder: folder, selectedThreadId: null });
     get().fetchThreads(folder);
   },
   setSelectedThreadId: (id) => {
-    set({ selectedThreadId: id });
+    set({ selectedThreadId: id, activeThreadFollowUp: null });
     if (id) {
       if (!id.startsWith('thread-')) {
         get().fetchThreadDetail(id);
+        get().fetchThreadFollowUp(id);
       }
       get().fetchThreadSummary(id);
     }
   },
+
   setThreads: (threads) => set({ threads }),
   setSearchQuery: (query) => {
     set({ searchQuery: query });
@@ -721,4 +753,94 @@ export const useMailStore = create<MailState>((set, get) => ({
       return `Hi ${sender},\n\nThank you for the thorough update on '${thread?.subject || 'this project'}'. I have reviewed all attachments and agree with the proposed approach.${custom}\n\nBest regards,\nAlex Rivera`;
     }
   },
+
+  fetchUserFollowUps: async () => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) return;
+    try {
+      const res = await apiClient.get<FollowUpReminderDTO[]>('/workflow/followups');
+      if (res.data) {
+        set({ activeFollowUps: res.data });
+      }
+    } catch (err) {
+      console.warn('Failed to fetch user follow-ups:', err);
+    }
+  },
+
+  fetchThreadFollowUp: async (threadId: string) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token || threadId.startsWith('thread-')) return null;
+    try {
+      const res = await apiClient.get<FollowUpReminderDTO>(`/workflow/followups/thread/${threadId}`);
+      if (res.data) {
+        set({ activeThreadFollowUp: res.data });
+        return res.data;
+      }
+    } catch {
+      // Ignore
+    }
+    set({ activeThreadFollowUp: null });
+    return null;
+  },
+
+  createFollowUp: async (payload) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) {
+      alert('Please sign in to schedule follow-up reminders');
+      return null;
+    }
+    try {
+      const res = await apiClient.post<FollowUpReminderDTO>('/workflow/followups', {
+        threadId: payload.threadId,
+        durationHours: payload.durationHours || 24,
+        dueAt: payload.dueAt,
+        condition: payload.condition || 'NO_REPLY_RECEIVED',
+        note: payload.note,
+      });
+      if (res.data) {
+        set({ activeThreadFollowUp: res.data });
+        get().fetchUserFollowUps();
+        return res.data;
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to schedule follow-up';
+      alert(msg);
+    }
+    return null;
+  },
+
+  snoozeFollowUp: async (id, additionalHours) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) return false;
+    try {
+      const res = await apiClient.post<FollowUpReminderDTO>(`/workflow/followups/${id}/snooze`, {
+        additionalHours,
+      });
+      if (res.data) {
+        set({ activeThreadFollowUp: res.data });
+        get().fetchUserFollowUps();
+        return true;
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to snooze follow-up';
+      alert(msg);
+    }
+    return false;
+  },
+
+  dismissFollowUp: async (id) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) return false;
+    try {
+      await apiClient.delete(`/workflow/followups/${id}`);
+      set({ activeThreadFollowUp: null });
+      get().fetchUserFollowUps();
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to dismiss follow-up';
+      alert(msg);
+    }
+    return false;
+  },
 }));
+
