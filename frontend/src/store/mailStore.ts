@@ -79,6 +79,32 @@ interface SearchPageResponse {
   executedByEngine: string;
 }
 
+export interface AiActionItem {
+  task: string;
+  assignee: string;
+  dueSuggestion: string;
+}
+
+export interface AiSummaryResponse {
+  threadId: string;
+  overview: string;
+  keyDecisions: string[];
+  actionItems: AiActionItem[];
+  unresolvedQuestions: string[];
+  priorityTier: 'URGENT' | 'IMPORTANT' | 'NORMAL' | 'LOW';
+  priorityScore: number;
+  priorityReason: string;
+  suggestedAction: string;
+  modelUsed: string;
+  generatedAt: string;
+}
+
+export interface AiReplyResponse {
+  suggestedReplyText: string;
+  tone: string;
+  modelUsed: string;
+}
+
 interface MailState {
   currentFolder: MailboxFolder;
   selectedThreadId: string | null;
@@ -91,6 +117,8 @@ interface MailState {
   isComposeOpen: boolean;
   isAIThinking: boolean;
   isLoadingThreads: boolean;
+  threadSummaries: Record<string, AiSummaryResponse>;
+  isLoadingSummary: boolean;
 
   setCurrentFolder: (folder: MailboxFolder) => void;
   setSelectedThreadId: (id: string | null) => void;
@@ -99,6 +127,8 @@ interface MailState {
   searchEmails: (query: string, folder?: string) => Promise<void>;
   clearSearch: () => void;
   setComposeOpen: (isOpen: boolean) => void;
+  fetchThreadSummary: (threadId: string) => Promise<AiSummaryResponse | null>;
+  generateAiReply: (threadId: string, tone: string, instructions?: string) => Promise<string | null>;
   
   fetchThreads: (folder?: MailboxFolder) => Promise<void>;
   fetchThreadDetail: (threadId: string) => Promise<void>;
@@ -281,6 +311,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   isComposeOpen: false,
   isAIThinking: false,
   isLoadingThreads: false,
+  threadSummaries: {},
+  isLoadingSummary: false,
 
   setCurrentFolder: (folder) => {
     set({ currentFolder: folder, selectedThreadId: null });
@@ -288,8 +320,11 @@ export const useMailStore = create<MailState>((set, get) => ({
   },
   setSelectedThreadId: (id) => {
     set({ selectedThreadId: id });
-    if (id && !id.startsWith('thread-')) {
-      get().fetchThreadDetail(id);
+    if (id) {
+      if (!id.startsWith('thread-')) {
+        get().fetchThreadDetail(id);
+      }
+      get().fetchThreadSummary(id);
     }
   },
   setThreads: (threads) => set({ threads }),
@@ -547,6 +582,92 @@ export const useMailStore = create<MailState>((set, get) => ({
       } catch {
         get().fetchThreads();
       }
+    }
+  },
+
+  fetchThreadSummary: async (threadId) => {
+    // Return cached if present
+    const existing = get().threadSummaries[threadId];
+    if (existing) return existing;
+
+    const token = localStorage.getItem('nextmail_token');
+    if (token && !threadId.startsWith('thread-')) {
+      set({ isLoadingSummary: true });
+      try {
+        const res = await apiClient.get<AiSummaryResponse>(`/ai/threads/${threadId}/summary`);
+        if (res.data) {
+          set((state) => ({
+            threadSummaries: { ...state.threadSummaries, [threadId]: res.data },
+            isLoadingSummary: false,
+          }));
+          return res.data;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch AI summary from backend:', err);
+      } finally {
+        set({ isLoadingSummary: false });
+      }
+    }
+
+    // Demo fallback for mock threads
+    const thread = get().threads.find((t) => t.id === threadId);
+    if (thread?.aiSummary) {
+      const mockSummary: AiSummaryResponse = {
+        threadId,
+        overview: thread.aiSummary.overview,
+        keyDecisions: thread.aiSummary.decisions,
+        actionItems: thread.aiSummary.actionItems.map((a) => ({
+          task: a,
+          assignee: 'Engineering Lead',
+          dueSuggestion: 'Thursday Window',
+        })),
+        unresolvedQuestions: ['Confirm staging replication test window with DBRE team.'],
+        priorityTier: thread.priorityTier,
+        priorityScore: thread.priorityScore,
+        priorityReason: thread.priorityReason,
+        suggestedAction: 'Sign off on Patroni failover runbook v2.4 before Thursday.',
+        modelUsed: 'gemini-1.5-flash',
+        generatedAt: new Date().toISOString(),
+      };
+      set((state) => ({
+        threadSummaries: { ...state.threadSummaries, [threadId]: mockSummary },
+      }));
+      return mockSummary;
+    }
+    return null;
+  },
+
+  generateAiReply: async (threadId, tone, instructions) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (token && !threadId.startsWith('thread-')) {
+      try {
+        const res = await apiClient.post<AiReplyResponse>(`/ai/threads/${threadId}/reply`, {
+          tone: tone.toUpperCase(),
+          instructions,
+        });
+        if (res.data?.suggestedReplyText) {
+          return res.data.suggestedReplyText;
+        }
+      } catch (err) {
+        console.warn('Failed to generate AI reply via backend API:', err);
+      }
+    }
+
+    // Demo fixture generation
+    const thread = get().threads.find((t) => t.id === threadId);
+    const sender = thread?.messages?.[0]?.sender.name?.split(' ')[0] || 'there';
+    const custom = instructions ? `\n\nRegarding your note: ${instructions}.` : '';
+
+    if (tone === 'Concise') {
+      return `Hi ${sender},\n\nReviewed and approved. Ready to proceed with the scheduled rollout.${custom}\n\nThanks,\nAlex`;
+    } else if (tone === 'Firm') {
+      return `Hi ${sender},\n\nPlease note that deployment is conditionally approved pending all telemetry tests passing on staging.${custom}\n\nRegards,\nAlex Rivera`;
+    } else if (tone === 'Friendly') {
+      return `Hey ${sender},\n\nThanks a ton for the detailed update! Everything looks super smooth—looking forward to catching up soon.${custom}\n\nCheers,\nAlex`;
+    } else if (tone === 'Technical') {
+      return `Hi ${sender},\n\nI have reviewed the failover specifications and connection pooling limits. Ensure PgBouncer connection max is capped at 50 per replica during cutover.${custom}\n\nBest regards,\nAlex Rivera`;
+    } else {
+      return `Hi ${sender},\n\nThank you for the thorough update on '${thread?.subject || 'this project'}'. I have reviewed all attachments and agree with the proposed approach.${custom}\n\nBest regards,\nAlex Rivera`;
     }
   },
 }));
