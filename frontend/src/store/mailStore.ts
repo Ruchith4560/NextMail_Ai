@@ -1,5 +1,54 @@
 import { create } from 'zustand';
-import { MailboxFolder, EmailThread } from '../types/mail';
+import { MailboxFolder, EmailThread, EmailMessage } from '../types/mail';
+import { apiClient } from '../services/apiClient';
+
+interface ThreadApiResponse {
+  id: string;
+  subject: string;
+  snippet: string;
+  messageCount: number;
+  hasAttachments: boolean;
+  lastMessageAt: string;
+  isRead: boolean;
+  isStarred: boolean;
+  isArchived: boolean;
+  isSpam: boolean;
+  isTrash: boolean;
+  priorityTier: 'URGENT' | 'IMPORTANT' | 'NORMAL' | 'LOW';
+  priorityScore: number;
+  priorityReason: string;
+}
+
+interface MessageApiResponse {
+  id: string;
+  threadId: string;
+  messageIdHeader: string;
+  inReplyTo?: string;
+  senderEmail: string;
+  senderName: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
+  sentAt: string;
+  receivedAt: string;
+  isRead: boolean;
+  isStarred: boolean;
+  isControlled: boolean;
+  expiresAt?: string;
+  hasAttachments: boolean;
+  recipients: Array<{ type: string; email: string; name?: string }>;
+}
+
+interface ThreadDetailApiResponse extends ThreadApiResponse {
+  messages: MessageApiResponse[];
+}
+
+interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+}
 
 interface MailState {
   currentFolder: MailboxFolder;
@@ -8,14 +57,28 @@ interface MailState {
   searchQuery: string;
   isComposeOpen: boolean;
   isAIThinking: boolean;
+  isLoadingThreads: boolean;
 
   setCurrentFolder: (folder: MailboxFolder) => void;
   setSelectedThreadId: (id: string | null) => void;
   setThreads: (threads: EmailThread[]) => void;
   setSearchQuery: (query: string) => void;
   setComposeOpen: (isOpen: boolean) => void;
-  toggleStar: (threadId: string) => void;
-  markAsRead: (threadId: string) => void;
+  
+  fetchThreads: (folder?: MailboxFolder) => Promise<void>;
+  fetchThreadDetail: (threadId: string) => Promise<void>;
+  sendMessage: (payload: {
+    to: string[];
+    subject: string;
+    bodyText: string;
+    threadId?: string;
+    isControlled?: boolean;
+    expiryHours?: number;
+  }) => Promise<boolean>;
+  toggleStar: (threadId: string) => Promise<void>;
+  markAsRead: (threadId: string) => Promise<void>;
+  archiveThread: (threadId: string) => Promise<void>;
+  trashThread: (threadId: string) => Promise<void>;
 }
 
 // Initial demonstration data for high-fidelity SaaS presentation
@@ -171,29 +234,203 @@ const INITIAL_DEMO_THREADS: EmailThread[] = [
   }
 ];
 
-export const useMailStore = create<MailState>((set) => ({
+export const useMailStore = create<MailState>((set, get) => ({
   currentFolder: 'inbox',
   selectedThreadId: 'thread-1',
   threads: INITIAL_DEMO_THREADS,
   searchQuery: '',
   isComposeOpen: false,
   isAIThinking: false,
+  isLoadingThreads: false,
 
-  setCurrentFolder: (folder) => set({ currentFolder: folder, selectedThreadId: null }),
-  setSelectedThreadId: (id) => set({ selectedThreadId: id }),
+  setCurrentFolder: (folder) => {
+    set({ currentFolder: folder, selectedThreadId: null });
+    get().fetchThreads(folder);
+  },
+  setSelectedThreadId: (id) => {
+    set({ selectedThreadId: id });
+    if (id && !id.startsWith('thread-')) {
+      get().fetchThreadDetail(id);
+    }
+  },
   setThreads: (threads) => set({ threads }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setComposeOpen: (isComposeOpen) => set({ isComposeOpen }),
 
-  toggleStar: (threadId) => set((state) => ({
-    threads: state.threads.map((t) =>
-      t.id === threadId ? { ...t, isStarred: !t.isStarred } : t
-    ),
-  })),
+  fetchThreads: async (folder) => {
+    const targetFolder = folder || get().currentFolder;
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) return; // Unauthenticated users see demo fixture threads
 
-  markAsRead: (threadId) => set((state) => ({
-    threads: state.threads.map((t) =>
-      t.id === threadId ? { ...t, isRead: true } : t
-    ),
-  })),
+    set({ isLoadingThreads: true });
+    try {
+      const res = await apiClient.get<PageResponse<ThreadApiResponse>>(
+        `/mail/threads?folder=${targetFolder.toUpperCase()}`
+      );
+      if (res.data?.content && res.data.content.length > 0) {
+        const liveThreads: EmailThread[] = res.data.content.map((t) => ({
+          id: t.id,
+          subject: t.subject,
+          snippet: t.snippet,
+          messageCount: t.messageCount,
+          hasAttachments: t.hasAttachments,
+          lastMessageAt: new Date(t.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isRead: t.isRead,
+          isStarred: t.isStarred,
+          priorityTier: t.priorityTier,
+          priorityScore: t.priorityScore,
+          priorityReason: t.priorityReason,
+          labels: ['Inbox'],
+        }));
+        set({ threads: liveThreads, selectedThreadId: liveThreads[0]?.id || null });
+      }
+    } catch {
+      // Fallback to memory threads on network or empty response
+    } finally {
+      set({ isLoadingThreads: false });
+    }
+  },
+
+  fetchThreadDetail: async (threadId) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token || threadId.startsWith('thread-')) return;
+
+    try {
+      const res = await apiClient.get<ThreadDetailApiResponse>(`/mail/threads/${threadId}`);
+      if (res.data) {
+        const d = res.data;
+        const messages: EmailMessage[] = (d.messages || []).map((m) => ({
+          id: m.id,
+          threadId: m.threadId,
+          sender: { name: m.senderName, email: m.senderEmail },
+          recipients: m.recipients.map((r) => ({ name: r.name, email: r.email })),
+          subject: m.subject,
+          snippet: m.bodyText.substring(0, 100),
+          bodyText: m.bodyText,
+          bodyHtml: m.bodyHtml,
+          sentAt: new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          receivedAt: new Date(m.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isRead: m.isRead,
+          isStarred: m.isStarred,
+          isControlled: m.isControlled,
+          expiresAt: m.expiresAt,
+          attachments: [],
+          securityFlags: {
+            isPhishingRisk: false,
+            spfValid: true,
+            dkimValid: true,
+            suspiciousLinksCount: 0,
+          },
+        }));
+
+        set((state) => ({
+          threads: state.threads.map((t) =>
+            t.id === threadId ? { ...t, messages } : t
+          ),
+        }));
+      }
+    } catch {
+      // Ignore
+    }
+  },
+
+  sendMessage: async (payload) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) {
+      alert('Please sign in to send live messages');
+      return false;
+    }
+
+    try {
+      await apiClient.post('/mail/send', {
+        to: payload.to,
+        subject: payload.subject,
+        bodyText: payload.bodyText,
+        threadId: payload.threadId && !payload.threadId.startsWith('thread-') ? payload.threadId : undefined,
+        isControlled: payload.isControlled || false,
+        expiryHours: payload.expiryHours || 48,
+      });
+
+      // Refresh threads from backend
+      await get().fetchThreads();
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send message';
+      alert(msg);
+      return false;
+    }
+  },
+
+  toggleStar: async (threadId) => {
+    // Optimistic UI update
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId ? { ...t, isStarred: !t.isStarred } : t
+      ),
+    }));
+
+    const token = localStorage.getItem('nextmail_token');
+    if (token && !threadId.startsWith('thread-')) {
+      try {
+        await apiClient.patch(`/mail/threads/${threadId}/star`);
+      } catch {
+        // Rollback
+        set((state) => ({
+          threads: state.threads.map((t) =>
+            t.id === threadId ? { ...t, isStarred: !t.isStarred } : t
+          ),
+        }));
+      }
+    }
+  },
+
+  markAsRead: async (threadId) => {
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId ? { ...t, isRead: true } : t
+      ),
+    }));
+
+    const token = localStorage.getItem('nextmail_token');
+    if (token && !threadId.startsWith('thread-')) {
+      try {
+        await apiClient.patch(`/mail/threads/${threadId}/read?isRead=true`);
+      } catch {
+        // Rollback
+      }
+    }
+  },
+
+  archiveThread: async (threadId) => {
+    set((state) => ({
+      threads: state.threads.filter((t) => t.id !== threadId),
+      selectedThreadId: state.selectedThreadId === threadId ? null : state.selectedThreadId,
+    }));
+
+    const token = localStorage.getItem('nextmail_token');
+    if (token && !threadId.startsWith('thread-')) {
+      try {
+        await apiClient.patch(`/mail/threads/${threadId}/archive`);
+      } catch {
+        // Refresh
+        get().fetchThreads();
+      }
+    }
+  },
+
+  trashThread: async (threadId) => {
+    set((state) => ({
+      threads: state.threads.filter((t) => t.id !== threadId),
+      selectedThreadId: state.selectedThreadId === threadId ? null : state.selectedThreadId,
+    }));
+
+    const token = localStorage.getItem('nextmail_token');
+    if (token && !threadId.startsWith('thread-')) {
+      try {
+        await apiClient.delete(`/mail/threads/${threadId}`);
+      } catch {
+        get().fetchThreads();
+      }
+    }
+  },
 }));

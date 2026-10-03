@@ -15,10 +15,11 @@ import {
 import { useMailStore } from '../../store/mailStore';
 
 export const ThreadView: React.FC = () => {
-  const { threads, selectedThreadId, toggleStar } = useMailStore();
+  const { threads, selectedThreadId, toggleStar, archiveThread, trashThread, sendMessage } = useMailStore();
   const [replyText, setReplyText] = useState('');
   const [selectedTone, setSelectedTone] = useState<'Concise' | 'Professional' | 'Friendly' | 'Firm'>('Professional');
   const [isDraftingAI, setIsDraftingAI] = useState(false);
+  const [isSendingReply, setIsSendingReply] = useState(false);
 
   const thread = threads.find((t) => t.id === selectedThreadId);
 
@@ -35,6 +36,22 @@ export const ThreadView: React.FC = () => {
       </div>
     );
   }
+
+  const handleSendReply = async () => {
+    if (!replyText.trim()) return;
+    const recipient = thread.messages?.[0]?.sender.email || 'recipient@nextmail.local';
+    setIsSendingReply(true);
+    const success = await sendMessage({
+      to: [recipient],
+      subject: thread.subject.startsWith('Re:') ? thread.subject : `Re: ${thread.subject}`,
+      bodyText: replyText.trim(),
+      threadId: thread.id,
+    });
+    setIsSendingReply(false);
+    if (success) {
+      setReplyText('');
+    }
+  };
 
   const handleAIDraft = () => {
     setIsDraftingAI(true);
@@ -67,10 +84,18 @@ export const ThreadView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1">
-          <button className="p-1.5 rounded-md hover:bg-surface-hover text-slate-400 hover:text-white transition-colors" title="Archive (E)">
+          <button
+            onClick={() => archiveThread(thread.id)}
+            className="p-1.5 rounded-md hover:bg-surface-hover text-slate-400 hover:text-white transition-colors"
+            title="Archive (E)"
+          >
             <Archive className="w-4 h-4" />
           </button>
-          <button className="p-1.5 rounded-md hover:bg-surface-hover text-slate-400 hover:text-rose-400 transition-colors" title="Trash (#)">
+          <button
+            onClick={() => trashThread(thread.id)}
+            className="p-1.5 rounded-md hover:bg-surface-hover text-slate-400 hover:text-rose-400 transition-colors"
+            title="Trash (#)"
+          >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -233,10 +258,11 @@ export const ThreadView: React.FC = () => {
               Press Cmd/Ctrl + Enter to send
             </div>
             <button
-              disabled={!replyText.trim()}
+              onClick={handleSendReply}
+              disabled={!replyText.trim() || isSendingReply}
               className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium text-xs px-3.5 py-1.5 rounded-lg shadow transition-colors"
             >
-              <span>Send Reply</span>
+              <span>{isSendingReply ? 'Sending...' : 'Send Reply'}</span>
               <Send className="w-3.5 h-3.5" />
             </button>
           </div>

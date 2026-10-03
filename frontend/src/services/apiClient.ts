@@ -43,6 +43,29 @@ class ApiClient {
     }
     return res.json();
   }
+
+  async patch<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      throw new Error(`API PATCH ${endpoint} failed with status ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error(`API DELETE ${endpoint} failed with status ${res.status}`);
+    }
+    return res.json();
+  }
 }
 
 export const apiClient = new ApiClient();

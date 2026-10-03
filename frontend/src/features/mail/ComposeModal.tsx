@@ -3,18 +3,37 @@ import { X, Send, Lock, Paperclip, Sparkles, Clock } from 'lucide-react';
 import { useMailStore } from '../../store/mailStore';
 
 export const ComposeModal: React.FC = () => {
-  const { isComposeOpen, setComposeOpen } = useMailStore();
+  const { isComposeOpen, setComposeOpen, sendMessage } = useMailStore();
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [isControlled, setIsControlled] = useState(false);
   const [expiryHours, setExpiryHours] = useState('48');
+  const [isSending, setIsSending] = useState(false);
 
   if (!isComposeOpen) return null;
 
-  const handleSend = () => {
-    alert(`Message dispatched to ${to || 'recipient'} (Controlled Envelope: ${isControlled ? 'Active' : 'Disabled'})`);
-    setComposeOpen(false);
+  const handleSend = async () => {
+    if (!to.trim() || !subject.trim() || !body.trim()) {
+      alert('Please fill in recipient, subject, and message body.');
+      return;
+    }
+    setIsSending(true);
+    const success = await sendMessage({
+      to: [to.trim()],
+      subject: subject.trim(),
+      bodyText: body.trim(),
+      isControlled,
+      expiryHours: parseInt(expiryHours, 10),
+    });
+    setIsSending(false);
+    if (success) {
+      setTo('');
+      setSubject('');
+      setBody('');
+      setIsControlled(false);
+      setComposeOpen(false);
+    }
   };
 
   return (
@@ -126,9 +145,10 @@ export const ComposeModal: React.FC = () => {
             </button>
             <button
               onClick={handleSend}
-              className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-500 text-white font-medium text-xs px-4 py-1.5 rounded-lg shadow transition-colors"
+              disabled={isSending}
+              className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white font-medium text-xs px-4 py-1.5 rounded-lg shadow transition-colors"
             >
-              <span>Send Message</span>
+              <span>{isSending ? 'Dispatching...' : 'Send Message'}</span>
               <Send className="w-3.5 h-3.5" />
             </button>
           </div>
