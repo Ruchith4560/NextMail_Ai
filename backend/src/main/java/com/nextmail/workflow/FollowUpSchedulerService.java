@@ -27,6 +27,8 @@ public class FollowUpSchedulerService {
     private final FollowUpReminderRepository followUpRepository;
     private final ThreadRepository threadRepository;
     private final MessageRepository messageRepository;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+
 
     @Scheduled(fixedDelay = 30000)
     @Transactional
@@ -88,6 +90,15 @@ public class FollowUpSchedulerService {
             threadRepository.save(thread);
             log.info("Triggered follow-up reminder {} and escalated thread {} to {}",
                     reminder.getId(), thread.getId(), thread.getPriorityTier());
+
+            eventPublisher.publishEvent(new com.nextmail.workflow.event.FollowUpTriggeredEvent(
+                    reminder.getId(),
+                    reminder.getUserId(),
+                    reminder.getThreadId(),
+                    thread.getSubject(),
+                    reminder.getNote()
+            ));
         });
     }
 }
+

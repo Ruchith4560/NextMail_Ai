@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { MailboxFolder, EmailThread, EmailMessage } from '../types/mail';
 import { apiClient } from '../services/apiClient';
+import { webSocketService } from '../services/webSocketService';
 
 interface ThreadApiResponse {
   id: string;
@@ -140,6 +141,25 @@ export interface FollowUpReminderDTO {
   createdAt: string;
 }
 
+export type NotificationType =
+  | 'NEW_EMAIL'
+  | 'FOLLOW_UP_DUE'
+  | 'AI_SUMMARY_READY'
+  | 'SECURITY_ALERT'
+  | 'THREAD_PRIORITY_ESCALATED';
+
+export interface NotificationItem {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  threadId?: string;
+  messageId?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 interface MailState {
   currentFolder: MailboxFolder;
   selectedThreadId: string | null;
@@ -156,6 +176,16 @@ interface MailState {
   isLoadingSummary: boolean;
   activeFollowUps: FollowUpReminderDTO[];
   activeThreadFollowUp: FollowUpReminderDTO | null;
+  notifications: NotificationItem[];
+  unreadNotificationsCount: number;
+  isNotificationsOpen: boolean;
+
+  setIsNotificationsOpen: (open: boolean) => void;
+  fetchNotifications: () => Promise<void>;
+  fetchUnreadNotificationsCount: () => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  initializeWebSocket: (userId: string, token: string) => () => void;
 
   setCurrentFolder: (folder: MailboxFolder) => void;
   setSelectedThreadId: (id: string | null) => void;
@@ -346,6 +376,29 @@ const INITIAL_DEMO_THREADS: EmailThread[] = [
   }
 ];
 
+const INITIAL_DEMO_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: 'demo-notif-1',
+    userId: 'user-1',
+    type: 'FOLLOW_UP_DUE',
+    title: 'Follow-Up Due',
+    message: "Follow-up due: 'Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy'",
+    threadId: 'thread-1',
+    isRead: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+  },
+  {
+    id: 'demo-notif-2',
+    userId: 'user-1',
+    type: 'AI_SUMMARY_READY',
+    title: 'AI Intelligence Summary',
+    message: "Executive brief generated with 2 action items identified.",
+    threadId: 'thread-1',
+    isRead: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+  },
+];
+
 export const useMailStore = create<MailState>((set, get) => ({
   currentFolder: 'inbox',
   selectedThreadId: 'thread-1',
@@ -362,6 +415,11 @@ export const useMailStore = create<MailState>((set, get) => ({
   isLoadingSummary: false,
   activeFollowUps: [],
   activeThreadFollowUp: null,
+  notifications: INITIAL_DEMO_NOTIFICATIONS,
+  unreadNotificationsCount: 2,
+  isNotificationsOpen: false,
+
+  setIsNotificationsOpen: (open) => set({ isNotificationsOpen: open }),
 
   setCurrentFolder: (folder) => {
     set({ currentFolder: folder, selectedThreadId: null });
@@ -841,6 +899,111 @@ export const useMailStore = create<MailState>((set, get) => ({
       alert(msg);
     }
     return false;
+  },
+
+  fetchNotifications: async () => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) return;
+    try {
+      const res = await apiClient.get<NotificationItem[]>('/notifications');
+      if (res.data) {
+        set({ notifications: res.data });
+      }
+    } catch (err) {
+      console.warn('Failed to fetch notifications:', err);
+    }
+  },
+
+  fetchUnreadNotificationsCount: async () => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) return;
+    try {
+      const res = await apiClient.get<number>('/notifications/unread-count');
+      if (typeof res.data === 'number') {
+        set({ unreadNotificationsCount: res.data });
+      }
+    } catch {
+      // Ignore
+    }
+  },
+
+  markNotificationRead: async (id: string) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) {
+      // Local/demo update
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n.id === id ? { ...n, isRead: true } : n
+        ),
+        unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1),
+      }));
+      return;
+    }
+    try {
+      await apiClient.patch(`/notifications/${id}/read`);
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n.id === id ? { ...n, isRead: true } : n
+        ),
+        unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1),
+      }));
+    } catch (err) {
+      console.warn('Failed to mark notification as read:', err);
+    }
+  },
+
+  markAllNotificationsRead: async () => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) {
+      set((state) => ({
+        notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
+        unreadNotificationsCount: 0,
+      }));
+      return;
+    }
+    try {
+      await apiClient.post('/notifications/mark-all-read');
+      set((state) => ({
+        notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
+        unreadNotificationsCount: 0,
+      }));
+    } catch (err) {
+      console.warn('Failed to mark all notifications as read:', err);
+    }
+  },
+
+  initializeWebSocket: (userId: string, token: string) => {
+    webSocketService.connect(token);
+
+    // 1. Live Notification stream
+    const unsubNotifications = webSocketService.subscribe(
+      `/topic/user/${userId}/notifications`,
+      (notification: NotificationItem) => {
+        set((state) => ({
+          notifications: [notification, ...state.notifications],
+          unreadNotificationsCount: state.unreadNotificationsCount + 1,
+        }));
+      }
+    );
+
+    // 2. Silent Inbox auto-refresh signal
+    const unsubInbox = webSocketService.subscribe(
+      `/topic/user/${userId}/inbox`,
+      (signal: { action?: string; threadId?: string }) => {
+        if (signal?.action === 'REFRESH_INBOX') {
+          get().fetchThreads();
+          if (signal.threadId && get().selectedThreadId === signal.threadId) {
+            get().fetchThreadDetail(signal.threadId);
+          }
+        }
+      }
+    );
+
+    return () => {
+      unsubNotifications();
+      unsubInbox();
+      webSocketService.disconnect();
+    };
   },
 }));
 

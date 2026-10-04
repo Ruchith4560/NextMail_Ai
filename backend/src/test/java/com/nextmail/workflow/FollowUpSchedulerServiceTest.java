@@ -35,6 +35,9 @@ class FollowUpSchedulerServiceTest {
     @Mock
     private MessageRepository messageRepository;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     private FollowUpSchedulerService schedulerService;
 
     private final UUID testUserId = UUID.randomUUID();
@@ -42,8 +45,9 @@ class FollowUpSchedulerServiceTest {
 
     @BeforeEach
     void setUp() {
-        schedulerService = new FollowUpSchedulerService(followUpRepository, threadRepository, messageRepository);
+        schedulerService = new FollowUpSchedulerService(followUpRepository, threadRepository, messageRepository, eventPublisher);
     }
+
 
     @Test
     @DisplayName("Auto-resolves reminder if inbound reply arrived in thread before evaluation")

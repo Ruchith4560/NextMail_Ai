@@ -9,12 +9,29 @@ import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
 
 export const AppLayout: React.FC = () => {
-  const { setComposeOpen, threads, selectedThreadId, setSelectedThreadId } = useMailStore();
-  const { checkAuth } = useAuthStore();
+  const {
+    setComposeOpen,
+    threads,
+    selectedThreadId,
+    setSelectedThreadId,
+    fetchNotifications,
+    fetchUnreadNotificationsCount,
+    initializeWebSocket,
+  } = useMailStore();
+  const { user, token, checkAuth } = useAuthStore();
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  useEffect(() => {
+    if (user?.id && token) {
+      fetchNotifications();
+      fetchUnreadNotificationsCount();
+      const cleanup = initializeWebSocket(user.id, token);
+      return cleanup;
+    }
+  }, [user?.id, token, fetchNotifications, fetchUnreadNotificationsCount, initializeWebSocket]);
 
   // Keyboard shortcut listener ('c' for compose, 'j'/'k' for navigation)
   useEffect(() => {

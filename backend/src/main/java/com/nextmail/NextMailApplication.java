@@ -10,8 +10,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @EnableAsync
 @EnableScheduling
-@EnableJpaRepositories(basePackages = {"com.nextmail.auth", "com.nextmail.mail", "com.nextmail.thread", "com.nextmail.ai", "com.nextmail.attachment", "com.nextmail.workflow"})
+@EnableJpaRepositories(basePackages = {"com.nextmail.auth", "com.nextmail.mail", "com.nextmail.thread", "com.nextmail.ai", "com.nextmail.attachment", "com.nextmail.workflow", "com.nextmail.notification"})
 public class NextMailApplication {
+
 
 
     public static void main(String[] args) {
