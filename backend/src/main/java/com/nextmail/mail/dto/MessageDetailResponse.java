@@ -47,6 +47,16 @@ public class MessageDetailResponse {
     @JsonProperty("hasAttachments")
     private boolean hasAttachments;
 
+    @JsonProperty("isExpired")
+    private boolean isExpired;
+
+    @JsonProperty("isRevoked")
+    private boolean isRevoked;
+
+    private boolean allowForwarding;
+    private boolean allowPrinting;
+    private boolean watermarkRecipient;
+
     private List<MessageRecipientDTO> recipients;
     private List<AttachmentResponseDTO> attachments;
 }

@@ -50,9 +50,43 @@ interface MessageApiResponse {
   isStarred: boolean;
   isControlled: boolean;
   expiresAt?: string;
+  isExpired?: boolean;
+  isRevoked?: boolean;
+  allowForwarding?: boolean;
+  allowPrinting?: boolean;
+  watermarkRecipient?: boolean;
   hasAttachments: boolean;
   recipients: Array<{ type: string; email: string; name?: string }>;
   attachments?: AttachmentApiResponse[];
+}
+
+export interface ControlledEnvelopeDTO {
+  id: string;
+  messageId: string;
+  senderId: string;
+  senderEmail: string;
+  expiresAt: string;
+  isRevoked: boolean;
+  revokedAt?: string;
+  revokeReason?: string;
+  allowForwarding: boolean;
+  allowPrinting: boolean;
+  watermarkRecipient: boolean;
+  isExpired: boolean;
+  isAccessible: boolean;
+  viewCount: number;
+  createdAt: string;
+}
+
+export interface EnvelopeAuditLogDTO {
+  id: string;
+  messageId: string;
+  viewerId?: string;
+  viewerEmail: string;
+  eventType: 'VIEWED' | 'REVOKED' | 'EXPIRED_ACCESS_ATTEMPT' | 'PRINT_ATTEMPT_BLOCKED' | 'FORWARD_ATTEMPT_BLOCKED';
+  ipAddress: string;
+  userAgent: string;
+  createdAt: string;
 }
 
 interface ThreadDetailApiResponse extends ThreadApiResponse {
@@ -206,6 +240,9 @@ interface MailState {
     threadId?: string;
     isControlled?: boolean;
     expiryHours?: number;
+    allowForwarding?: boolean;
+    allowPrinting?: boolean;
+    watermarkRecipient?: boolean;
     attachmentIds?: string[];
   }) => Promise<boolean>;
   uploadAttachment: (file: File, messageId?: string) => Promise<AttachmentApiResponse | null>;
@@ -213,6 +250,10 @@ interface MailState {
   markAsRead: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   trashThread: (threadId: string) => Promise<void>;
+
+  revokeEnvelope: (messageId: string, reason?: string) => Promise<boolean>;
+  fetchEnvelopeAuditLogs: (messageId: string) => Promise<EnvelopeAuditLogDTO[]>;
+  fetchEnvelopeStatus: (messageId: string) => Promise<ControlledEnvelopeDTO | null>;
 
   fetchUserFollowUps: () => Promise<void>;
   fetchThreadFollowUp: (threadId: string) => Promise<FollowUpReminderDTO | null>;
@@ -574,6 +615,11 @@ export const useMailStore = create<MailState>((set, get) => ({
           isStarred: m.isStarred,
           isControlled: m.isControlled,
           expiresAt: m.expiresAt,
+          isExpired: m.isExpired,
+          isRevoked: m.isRevoked,
+          allowForwarding: m.allowForwarding,
+          allowPrinting: m.allowPrinting,
+          watermarkRecipient: m.watermarkRecipient,
           attachments: (m.attachments || []).map((att) => ({
             id: att.id,
             filename: att.filename,
@@ -639,6 +685,9 @@ export const useMailStore = create<MailState>((set, get) => ({
         threadId: payload.threadId && !payload.threadId.startsWith('thread-') ? payload.threadId : undefined,
         isControlled: payload.isControlled || false,
         expiryHours: payload.expiryHours || 48,
+        allowForwarding: payload.allowForwarding || false,
+        allowPrinting: payload.allowPrinting || false,
+        watermarkRecipient: payload.watermarkRecipient !== false,
         attachmentIds: payload.attachmentIds,
       });
 
@@ -1004,6 +1053,68 @@ export const useMailStore = create<MailState>((set, get) => ({
       unsubInbox();
       webSocketService.disconnect();
     };
+  },
+
+  revokeEnvelope: async (messageId: string, reason?: string) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) {
+      alert('Please sign in to revoke envelope');
+      return false;
+    }
+    try {
+      const res = await apiClient.post<ControlledEnvelopeDTO>(`/controlled/${messageId}/revoke`, {
+        reason: reason || 'Sender revoked access on demand',
+      });
+      if (res.data) {
+        // Optimistically update message in threads
+        set((state) => ({
+          threads: state.threads.map((t) => ({
+            ...t,
+            messages: (t.messages || []).map((m) =>
+              m.id === messageId
+                ? {
+                    ...m,
+                    isRevoked: true,
+                    bodyText:
+                      '[CONTROLLED ENVELOPE REVOKED]\nAccess to this confidential message was revoked by the sender. In accordance with NextMail Zero-Trust policy, content has been shredded.',
+                    bodyHtml:
+                      '<div style="padding: 16px; background-color: #0f172a; border: 1px solid rgba(244,63,94,0.3); border-radius: 8px; color: #fb7185; font-family: monospace; font-size: 13px;"><strong>[CONTROLLED ENVELOPE REVOKED]</strong><br/>Access to this message was revoked by the sender. Content has been cryptographically shredded.</div>',
+                    attachments: [],
+                  }
+                : m
+            ),
+          })),
+        }));
+        return true;
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to revoke envelope';
+      alert(msg);
+    }
+    return false;
+  },
+
+  fetchEnvelopeAuditLogs: async (messageId: string) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) return [];
+    try {
+      const res = await apiClient.get<EnvelopeAuditLogDTO[]>(`/controlled/${messageId}/audit-logs`);
+      return res.data || [];
+    } catch (err) {
+      console.warn('Failed to fetch envelope audit logs:', err);
+      return [];
+    }
+  },
+
+  fetchEnvelopeStatus: async (messageId: string) => {
+    const token = localStorage.getItem('nextmail_token');
+    if (!token) return null;
+    try {
+      const res = await apiClient.get<ControlledEnvelopeDTO>(`/controlled/${messageId}/status`);
+      return res.data || null;
+    } catch {
+      return null;
+    }
   },
 }));
 

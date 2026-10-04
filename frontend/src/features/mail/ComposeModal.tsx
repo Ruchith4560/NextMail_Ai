@@ -16,6 +16,9 @@ export const ComposeModal: React.FC = () => {
   const [body, setBody] = useState('');
   const [isControlled, setIsControlled] = useState(false);
   const [expiryHours, setExpiryHours] = useState('48');
+  const [allowForwarding, setAllowForwarding] = useState(false);
+  const [allowPrinting, setAllowPrinting] = useState(false);
+  const [watermarkRecipient, setWatermarkRecipient] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<UploadedFile[]>([]);
@@ -71,6 +74,9 @@ export const ComposeModal: React.FC = () => {
       bodyText: body.trim(),
       isControlled,
       expiryHours: parseInt(expiryHours, 10),
+      allowForwarding,
+      allowPrinting,
+      watermarkRecipient,
       attachmentIds: attachments.map((a) => a.id),
     });
     setIsSending(false);
@@ -173,34 +179,70 @@ export const ComposeModal: React.FC = () => {
           )}
 
           {/* Controlled Message Configuration Banner */}
-          <div className="p-2.5 rounded-lg bg-surface/50 border border-surface-border flex items-center justify-between text-xs">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isControlled}
-                onChange={(e) => setIsControlled(e.target.checked)}
-                className="rounded border-slate-600 bg-background text-primary-600 focus:ring-0"
-              />
-              <span className="text-slate-300 font-medium flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-accent-secure" />
-                <span>NextMail Controlled Envelope</span>
-              </span>
-            </label>
+          {/* Controlled Message Configuration Banner */}
+          <div className="p-2.5 rounded-lg bg-surface/50 border border-surface-border text-xs flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isControlled}
+                  onChange={(e) => setIsControlled(e.target.checked)}
+                  className="rounded border-slate-600 bg-background text-primary-600 focus:ring-0"
+                />
+                <span className="text-slate-300 font-medium flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-accent-secure" />
+                  <span>NextMail Controlled Envelope</span>
+                </span>
+              </label>
+
+              {isControlled && (
+                <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                  <Clock className="w-3 h-3 text-slate-400" />
+                  <span>Self-destruct:</span>
+                  <select
+                    value={expiryHours}
+                    onChange={(e) => setExpiryHours(e.target.value)}
+                    className="bg-background text-slate-200 border border-surface-border rounded px-1.5 py-0.5 text-[11px]"
+                  >
+                    <option value="1">1 hour</option>
+                    <option value="12">12 hours</option>
+                    <option value="24">24 hours</option>
+                    <option value="48">48 hours</option>
+                    <option value="168">7 days</option>
+                  </select>
+                </div>
+              )}
+            </div>
 
             {isControlled && (
-              <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                <Clock className="w-3 h-3 text-slate-400" />
-                <span>Self-destruct:</span>
-                <select
-                  value={expiryHours}
-                  onChange={(e) => setExpiryHours(e.target.value)}
-                  className="bg-background text-slate-200 border border-surface-border rounded px-1.5 py-0.5 text-[11px]"
-                >
-                  <option value="1">1 hour</option>
-                  <option value="24">24 hours</option>
-                  <option value="48">48 hours</option>
-                  <option value="168">7 days</option>
-                </select>
+              <div className="pt-2 border-t border-surface-border/50 flex flex-wrap items-center gap-4 text-[11px] text-slate-400 animate-in fade-in duration-150">
+                <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={!allowForwarding}
+                    onChange={(e) => setAllowForwarding(!e.target.checked)}
+                    className="rounded border-slate-600 bg-background text-primary-500 focus:ring-0 text-xs"
+                  />
+                  <span>Disallow Forwarding</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={!allowPrinting}
+                    onChange={(e) => setAllowPrinting(!e.target.checked)}
+                    className="rounded border-slate-600 bg-background text-primary-500 focus:ring-0 text-xs"
+                  />
+                  <span>Disallow Printing</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={watermarkRecipient}
+                    onChange={(e) => setWatermarkRecipient(e.target.checked)}
+                    className="rounded border-slate-600 bg-background text-primary-500 focus:ring-0 text-xs"
+                  />
+                  <span>Watermark Recipient Identity</span>
+                </label>
               </div>
             )}
           </div>

@@ -30,6 +30,7 @@ public class MailService {
     private final JwzThreadingService threadingService;
     private final com.nextmail.mail.ingest.SmtpOutboundDeliveryService smtpDeliveryService;
     private final com.nextmail.attachment.AttachmentService attachmentService;
+    private final com.nextmail.controlled.ControlledEnvelopeService controlledEnvelopeService;
 
     @Transactional(readOnly = true)
     public Page<ThreadSummaryResponse> getThreads(UUID userId, MailFolder folder, int page, int size) {
@@ -154,6 +155,17 @@ public class MailService {
         Message savedMessage = messageRepository.save(message);
         log.info("Saved outbound message {} in thread {}", savedMessage.getId(), thread.getId());
 
+        // Create Controlled Envelope policy if enabled
+        if (request.isControlled()) {
+            controlledEnvelopeService.createEnvelope(
+                    savedMessage,
+                    request.getExpiryHours() != null ? request.getExpiryHours() : 48,
+                    request.isAllowForwarding(),
+                    request.isAllowPrinting(),
+                    request.isWatermarkRecipient()
+            );
+        }
+
         // Link any uploaded attachments
         if (request.getAttachmentIds() != null && !request.getAttachmentIds().isEmpty()) {
             attachmentService.linkAttachmentsToMessage(request.getAttachmentIds(), savedMessage.getId());
@@ -270,6 +282,51 @@ public class MailService {
         List<com.nextmail.attachment.dto.AttachmentResponseDTO> attachments =
                 attachmentService.getAttachmentsByMessage(message.getId());
 
+        boolean isExpired = false;
+        boolean isRevoked = false;
+        boolean allowForwarding = false;
+        boolean allowPrinting = false;
+        boolean watermarkRecipient = false;
+        String bodyText = message.getBodyText();
+        String bodyHtml = message.getBodyHtml();
+
+        if (message.isControlled()) {
+            var envelopeOpt = controlledEnvelopeService.getEnvelopeDTO(message.getId());
+            if (envelopeOpt.isPresent()) {
+                var env = envelopeOpt.get();
+                isExpired = env.isExpired();
+                isRevoked = env.isRevoked();
+                allowForwarding = env.isAllowForwarding();
+                allowPrinting = env.isAllowPrinting();
+                watermarkRecipient = env.isWatermarkRecipient();
+
+                if (!env.isAccessible()) {
+                    bodyText = "[CONTROLLED ENVELOPE EXPIRED / REVOKED]\nThis message expired on " + env.getExpiresAt()
+                            + (env.isRevoked() ? " (Revoked: " + env.getRevokeReason() + ")" : "")
+                            + ".\nContent has been permanently shredded in accordance with NextMail Zero-Trust policy.";
+                    bodyHtml = "<div style=\"padding: 16px; background-color: #0f172a; border: 1px solid rgba(244,63,94,0.3); border-radius: 8px; color: #fb7185; font-family: monospace; font-size: 13px;\">"
+                            + "<strong>[CONTROLLED ENVELOPE EXPIRED / REVOKED]</strong><br/>"
+                            + "This message expired or was revoked by the sender. In accordance with NextMail Zero-Trust policy, the email content and attachments have been shredded."
+                            + "</div>";
+                    attachments = List.of();
+                } else {
+                    controlledEnvelopeService.recordAudit(
+                            message.getId(),
+                            message.getUserId(),
+                            message.getSenderEmail(),
+                            com.nextmail.controlled.EnvelopeAuditEvent.VIEWED,
+                            "127.0.0.1",
+                            "NextMail-Web/1.0"
+                    );
+                }
+            } else if (message.getExpiresAt() != null && Instant.now().isAfter(message.getExpiresAt())) {
+                isExpired = true;
+                bodyText = "[CONTROLLED ENVELOPE EXPIRED]\nContent has been shredded in accordance with NextMail Zero-Trust policy.";
+                bodyHtml = null;
+                attachments = List.of();
+            }
+        }
+
         return MessageDetailResponse.builder()
                 .id(message.getId())
                 .threadId(message.getThreadId())
@@ -278,8 +335,8 @@ public class MailService {
                 .senderEmail(message.getSenderEmail())
                 .senderName(message.getSenderName())
                 .subject(message.getSubject())
-                .bodyText(message.getBodyText())
-                .bodyHtml(message.getBodyHtml())
+                .bodyText(bodyText)
+                .bodyHtml(bodyHtml)
                 .sentAt(message.getSentAt())
                 .receivedAt(message.getReceivedAt())
                 .isRead(message.isRead())
@@ -289,6 +346,11 @@ public class MailService {
                 .expiresAt(message.getExpiresAt())
                 .folder(message.getFolder())
                 .hasAttachments(message.isHasAttachments() || (attachments != null && !attachments.isEmpty()))
+                .isExpired(isExpired)
+                .isRevoked(isRevoked)
+                .allowForwarding(allowForwarding)
+                .allowPrinting(allowPrinting)
+                .watermarkRecipient(watermarkRecipient)
                 .recipients(message.getRecipients().stream()
                         .map(r -> MessageRecipientDTO.builder()
                                 .type(r.getType())

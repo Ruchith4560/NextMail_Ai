@@ -38,6 +38,11 @@ export interface EmailMessage {
   isStarred: boolean;
   isControlled?: boolean;
   expiresAt?: string;
+  isExpired?: boolean;
+  isRevoked?: boolean;
+  allowForwarding?: boolean;
+  allowPrinting?: boolean;
+  watermarkRecipient?: boolean;
   attachments: AttachmentMetadata[];
   securityFlags?: {
     isPhishingRisk: boolean;

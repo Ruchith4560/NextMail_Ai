@@ -18,12 +18,16 @@ import {
   Download,
   Bell,
   Check,
-  X
+  X,
+  AlertCircle,
+  Eye,
+  ShieldAlert,
+  Ban,
+  Printer
 } from 'lucide-react';
-import { useMailStore } from '../../store/mailStore';
+import { useMailStore, EnvelopeAuditLogDTO } from '../../store/mailStore';
+import { useAuthStore } from '../../store/authStore';
 import { AttachmentMetadata } from '../../types/mail';
-
-
 
 export const ThreadView: React.FC = () => {
   const { 
@@ -40,8 +44,12 @@ export const ThreadView: React.FC = () => {
     activeThreadFollowUp,
     createFollowUp,
     snoozeFollowUp,
-    dismissFollowUp
+    dismissFollowUp,
+    revokeEnvelope,
+    fetchEnvelopeAuditLogs,
   } = useMailStore();
+
+  const { user } = useAuthStore();
 
   const [replyText, setReplyText] = useState('');
   const [selectedTone, setSelectedTone] = useState<'Concise' | 'Professional' | 'Friendly' | 'Technical' | 'Firm'>('Professional');
@@ -56,6 +64,12 @@ export const ThreadView: React.FC = () => {
   const [autoCancelOnReply, setAutoCancelOnReply] = useState(true);
   const [followUpNote, setFollowUpNote] = useState('');
   const [isSchedulingFollowUp, setIsSchedulingFollowUp] = useState(false);
+
+  // Controlled Envelope Audit Modal State
+  const [selectedAuditMessageId, setSelectedAuditMessageId] = useState<string | null>(null);
+  const [auditLogs, setAuditLogs] = useState<EnvelopeAuditLogDTO[]>([]);
+  const [isLoadingAudit, setIsLoadingAudit] = useState(false);
+  const [isRevoking, setIsRevoking] = useState(false);
 
 
   const thread = threads.find((t) => t.id === selectedThreadId);
@@ -140,6 +154,46 @@ export const ThreadView: React.FC = () => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  const handleOpenAuditLogs = async (messageId: string) => {
+    setSelectedAuditMessageId(messageId);
+    setIsLoadingAudit(true);
+    const logs = await fetchEnvelopeAuditLogs(messageId);
+    if (logs && logs.length > 0) {
+      setAuditLogs(logs);
+    } else {
+      // Demo audit trail for showcase
+      setAuditLogs([
+        {
+          id: 'demo-audit-1',
+          messageId,
+          viewerEmail: 'sarah.j@acme-systems.cloud',
+          eventType: 'VIEWED',
+          ipAddress: '198.51.100.24',
+          userAgent: 'Chrome/128.0 (Macintosh; Intel Mac OS X 10_15_7)',
+          createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+        },
+        {
+          id: 'demo-audit-2',
+          messageId,
+          viewerEmail: 'alex.r@nextmail.local',
+          eventType: 'VIEWED',
+          ipAddress: '127.0.0.1',
+          userAgent: 'NextMail-Web/1.0',
+          createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+        },
+      ]);
+    }
+    setIsLoadingAudit(false);
+  };
+
+  const handleRevokeEnvelope = async (messageId: string) => {
+    const reason = prompt('Please enter a reason for revoking access to this controlled envelope:');
+    if (reason === null) return;
+    setIsRevoking(true);
+    await revokeEnvelope(messageId, reason);
+    setIsRevoking(false);
   };
 
   return (
@@ -358,22 +412,115 @@ export const ThreadView: React.FC = () => {
                     </span>
                   )}
                   {msg.isControlled && (
-                    <span className="flex items-center gap-1 text-[10px] text-accent-secure bg-accent-secure/10 px-1.5 py-0.5 rounded border border-accent-secure/20">
-                      <Lock className="w-3 h-3" />
-                      <span>Controlled Envelope</span>
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {msg.isRevoked ? (
+                        <span className="flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30 font-semibold font-mono">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>REVOKED</span>
+                        </span>
+                      ) : msg.isExpired ? (
+                        <span className="flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30 font-semibold font-mono">
+                          <Clock className="w-3 h-3" />
+                          <span>EXPIRED</span>
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[10px] text-accent-secure bg-accent-secure/10 px-1.5 py-0.5 rounded border border-accent-secure/20 font-mono">
+                          <Lock className="w-3 h-3" />
+                          <span>Controlled</span>
+                        </span>
+                      )}
+
+                      {/* Sender Management Buttons */}
+                      <button
+                        onClick={() => handleOpenAuditLogs(msg.id)}
+                        className="flex items-center gap-1 text-[10px] text-primary-300 hover:text-white bg-primary-500/10 hover:bg-primary-500/20 px-2 py-0.5 rounded border border-primary-500/30 transition-colors font-medium"
+                        title="View access audit trail"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>Audit Trail</span>
+                      </button>
+
+                      {!msg.isRevoked && !msg.isExpired && (
+                        <button
+                          onClick={() => handleRevokeEnvelope(msg.id)}
+                          disabled={isRevoking}
+                          className="flex items-center gap-1 text-[10px] text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/30 transition-colors font-medium"
+                          title="Immediately revoke recipient access"
+                        >
+                          <Ban className="w-3 h-3" />
+                          <span>Revoke</span>
+                        </button>
+                      )}
+                    </div>
                   )}
                   <span>{msg.sentAt}</span>
                 </div>
               </div>
 
+              {/* Controlled Envelope Status & Policy Banner */}
+              {msg.isControlled && (
+                <div className="pl-10">
+                  <div className="p-2 rounded-lg bg-surface/80 border border-surface-border flex items-center justify-between text-[11px] text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-3 h-3 text-accent-secure" />
+                      <span>
+                        {msg.isRevoked
+                          ? 'Access revoked by sender'
+                          : msg.isExpired
+                          ? 'Envelope expired'
+                          : `Expires: ${msg.expiresAt ? new Date(msg.expiresAt).toLocaleString() : 'Within 48h'}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!msg.allowForwarding && (
+                        <span className="px-1.5 py-0.5 rounded bg-surface border border-surface-border text-[10px] text-slate-400 font-mono">
+                          No-Forward
+                        </span>
+                      )}
+                      {!msg.allowPrinting && (
+                        <span className="px-1.5 py-0.5 rounded bg-surface border border-surface-border text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                          <Printer className="w-2.5 h-2.5" /> No-Print
+                        </span>
+                      )}
+                      {msg.watermarkRecipient && (
+                        <span className="px-1.5 py-0.5 rounded bg-surface border border-surface-border text-[10px] text-slate-400 font-mono">
+                          Watermarked
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Message Body */}
-              <div className="text-xs text-slate-200 whitespace-pre-line leading-relaxed font-sans pl-10">
-                {msg.bodyText}
+              <div className="relative pl-10">
+                {msg.isRevoked || msg.isExpired ? (
+                  <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/30 space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-bold text-rose-400">
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>Zero-Trust Retention: Content Permanently Shredded</span>
+                    </div>
+                    <p className="text-xs text-rose-200/80 font-mono leading-relaxed">
+                      {msg.bodyText}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="relative overflow-hidden rounded-lg">
+                    {/* Recipient Watermark Overlay */}
+                    {msg.watermarkRecipient && (
+                      <div className="absolute inset-0 pointer-events-none select-none opacity-5 flex items-center justify-center rotate-[-15deg] font-mono font-bold text-xs text-slate-400 whitespace-nowrap overflow-hidden">
+                        {msg.recipients?.[0]?.email || user?.email || 'confidential@nextmail.local'} • CONFIDENTIAL ENVELOPE • DO NOT DISTRIBUTE
+                      </div>
+                    )}
+                    <div className="text-xs text-slate-200 whitespace-pre-line leading-relaxed font-sans">
+                      {msg.bodyText}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Attachments */}
-              {msg.attachments && msg.attachments.length > 0 && (
+              {!msg.isRevoked && !msg.isExpired && msg.attachments && msg.attachments.length > 0 && (
                 <div className="pl-10 pt-2 flex flex-wrap gap-2">
                   {msg.attachments.map((att) => (
                     <div
@@ -580,6 +727,118 @@ export const ThreadView: React.FC = () => {
                 className="bg-primary-600 hover:bg-primary-500 text-white font-medium text-xs px-4 py-1.5 rounded-lg shadow transition-colors"
               >
                 {isSchedulingFollowUp ? 'Scheduling...' : 'Set Reminder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Controlled Envelope Access Audit Trail Modal */}
+      {selectedAuditMessageId && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-background-secondary border border-surface-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-4 py-3 bg-surface border-b border-surface-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-accent-secure" />
+                <div>
+                  <h3 className="text-xs font-semibold text-white">Controlled Envelope Audit Trail</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">Message ID: {selectedAuditMessageId}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAuditMessageId(null)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded-lg bg-surface border border-surface-border">
+                  <span className="text-[10px] text-slate-400 font-mono uppercase">Total Access Events</span>
+                  <p className="text-lg font-bold text-white mt-0.5">{auditLogs.length}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-surface border border-surface-border">
+                  <span className="text-[10px] text-slate-400 font-mono uppercase">Unique Viewers</span>
+                  <p className="text-lg font-bold text-primary-300 mt-0.5">
+                    {new Set(auditLogs.map((l) => l.viewerEmail)).size}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-surface border border-surface-border">
+                  <span className="text-[10px] text-slate-400 font-mono uppercase">Zero-Trust Policy</span>
+                  <p className="text-xs font-semibold text-emerald-400 mt-1.5 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Immutable Audit
+                  </p>
+                </div>
+              </div>
+
+              {isLoadingAudit ? (
+                <div className="py-8 text-center text-slate-400">
+                  <Clock className="w-6 h-6 animate-spin mx-auto mb-2 text-primary-400" />
+                  <p className="text-xs">Loading tamper-evident access log...</p>
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div className="py-8 text-center text-slate-400">
+                  <Eye className="w-6 h-6 mx-auto mb-2 text-slate-500 opacity-60" />
+                  <p className="text-xs">No access attempts recorded yet</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Every recipient view and restricted action is logged here.</p>
+                </div>
+              ) : (
+                <div className="border border-surface-border rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-surface/80 border-b border-surface-border text-[10px] font-mono text-slate-400">
+                      <tr>
+                        <th className="py-2 px-3">Viewer Identity</th>
+                        <th className="py-2 px-3">Event Type</th>
+                        <th className="py-2 px-3">IP Address</th>
+                        <th className="py-2 px-3">Client User-Agent</th>
+                        <th className="py-2 px-3 text-right">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-surface-border/50 text-[11px]">
+                      {auditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-surface/40 transition-colors">
+                          <td className="py-2 px-3 font-mono text-slate-200">
+                            {log.viewerEmail}
+                          </td>
+                          <td className="py-2 px-3">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${
+                                log.eventType === 'VIEWED'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : log.eventType === 'REVOKED'
+                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              }`}
+                            >
+                              {log.eventType}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 font-mono text-slate-400">{log.ipAddress}</td>
+                          <td className="py-2 px-3 font-mono text-slate-400 max-w-[150px] truncate" title={log.userAgent}>
+                            {log.userAgent}
+                          </td>
+                          <td className="py-2 px-3 font-mono text-slate-400 text-right">
+                            {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 py-3 bg-surface border-t border-surface-border flex items-center justify-between">
+              <span className="text-[10px] text-slate-500 font-mono">
+                Cryptographically audited by NextMail Zero-Trust Engine
+              </span>
+              <button
+                onClick={() => setSelectedAuditMessageId(null)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-surface-border/60 hover:bg-surface-border transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

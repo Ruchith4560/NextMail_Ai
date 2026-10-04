@@ -39,6 +39,12 @@ public class SendMessageRequest {
     // NextMail Controlled Envelope policies
     private boolean isControlled;
     private Integer expiryHours;
+    @Builder.Default
+    private boolean allowForwarding = false;
+    @Builder.Default
+    private boolean allowPrinting = false;
+    @Builder.Default
+    private boolean watermarkRecipient = true;
 
     // Optional attached file IDs
     private List<UUID> attachmentIds;
