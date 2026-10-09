@@ -1,0 +1,250 @@
+version: '3.8'
+
+services:
+  # ==============================================================================
+  # Primary Relational Store: PostgreSQL 16
+  # ==============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: nextmail-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nextmail_db}
+      POSTGRES_USER: ${POSTGRES_USER:-nextmail_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nextmail_secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - nextmail-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nextmail_user} -d ${POSTGRES_DB:-nextmail_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==============================================================================
+  # Distributed Cache & Rate Limiting: Redis 7
+  # ==============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: nextmail-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - nextmail-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==============================================================================
+  # Full-Text Search Engine: Elasticsearch 8.15
+  # ==============================================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: nextmail-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - nextmail-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ==============================================================================
+  # S3 Object Storage: MinIO High-Performance Engine
+  # ==============================================================================
+  minio:
+    image: minio/minio:RELEASE.2024-08-03T04-33-23Z
+    container_name: nextmail-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - nextmail-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Init container to auto-create S3 buckets on startup
+  minio-init:
+    image: minio/mc:RELEASE.2024-08-03T04-33-23Z
+    container_name: nextmail-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - nextmail-network
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+      /usr/bin/mc mb --ignore-existing myminio/nextmail-attachments;
+      /usr/bin/mc anonymous set download myminio/nextmail-attachments;
+      exit 0;
+      "
+
+  # ==============================================================================
+  # Mock Inbound/Outbound Mail Server: GreenMail (SMTP / IMAP / POP3)
+  # ==============================================================================
+  greenmail:
+    image: greenmail/standalone:2.1.0
+    container_name: nextmail-greenmail
+    restart: unless-stopped
+    environment:
+      - GREENMAIL_OPTS=-Dgreenmail.setup.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled -Dgreenmail.verbose
+    ports:
+      - "3025:3025"   # Mock SMTP
+      - "3143:3143"   # Mock IMAP
+      - "3110:3110"   # Mock POP3
+      - "8085:8080"   # GreenMail Admin API
+    networks:
+      - nextmail-network
+
+  # ==============================================================================
+  # NextMail Backend: Spring Boot 3.3.4 (Java 21 LTS Virtual Threads)
+  # ==============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nextmail-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nextmail_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-nextmail_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-nextmail_secret}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      SPRING_MAIL_HOST: greenmail
+      SPRING_MAIL_PORT: 3025
+      NEXTMAIL_STORAGE_TYPE: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: nextmail-attachments
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - nextmail-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health/liveness || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+  # ==============================================================================
+  # NextMail Frontend: React 19 + TypeScript + Vite + Nginx Reverse Proxy
+  # ==============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nextmail-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - nextmail-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # ==============================================================================
+  # Metrics Aggregation: Prometheus Server
+  # ==============================================================================
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: nextmail-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - nextmail-network
+    depends_on:
+      - backend
+
+  # ==============================================================================
+  # Metrics Visualization: Grafana Dashboard
+  # ==============================================================================
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: nextmail-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - nextmail-network
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  es_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  nextmail-network:
+    driver: bridge
