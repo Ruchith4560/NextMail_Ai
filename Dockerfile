@@ -59,12 +59,13 @@ COPY --from=backend-builder --chown=nextmail:nextmail /build/backend/target/*.ja
 
 # JVM Performance Tuning for Project Loom Virtual Threads & Container Memory
 ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+ENV PORT=8080
 ENV SERVER_PORT=8080
 
-EXPOSE 8080
+EXPOSE 8080 10000
 
-# Native container healthcheck probe
+# Native container healthcheck probe supporting dynamic PORT environment variable (Render/Cloud)
 HEALTHCHECK --interval=15s --timeout=5s --start-period=35s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health/liveness || exit 1
+  CMD curl -f http://localhost:${PORT:-8080}/actuator/health/liveness || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

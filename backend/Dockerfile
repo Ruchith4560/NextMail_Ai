@@ -32,11 +32,12 @@ COPY --from=builder --chown=nextmail:nextmail /build/target/*.jar /app/app.jar
 
 # Tuning JVM flags for virtual threads and container limits
 ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+ENV PORT=8080
 ENV SERVER_PORT=8080
 
-EXPOSE 8080
+EXPOSE 8080 10000
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health/liveness || exit 1
+  CMD curl -f http://localhost:${PORT:-8080}/actuator/health/liveness || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

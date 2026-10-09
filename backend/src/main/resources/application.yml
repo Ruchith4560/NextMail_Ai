@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:8080}}
   shutdown: graceful
 
 spring:
@@ -13,19 +13,21 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/nextmail_db}
     username: ${SPRING_DATASOURCE_USERNAME:nextmail_user}
     password: ${SPRING_DATASOURCE_PASSWORD:nextmail_secret}
-    driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
       idle-timeout: 300000
       connection-timeout: 20000
+      initialization-fail-timeout: 10000
 
   jpa:
     hibernate:
       ddl-auto: update
     open-in-view: false
+    database-platform: ${SPRING_JPA_DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
     properties:
       hibernate:
+        dialect: ${SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT:org.hibernate.dialect.PostgreSQLDialect}
         format_sql: true
         jdbc:
           batch_size: 50
@@ -68,6 +70,13 @@ management:
       show-details: always
       probes:
         enabled: true
+  health:
+    mail:
+      enabled: false
+    elasticsearch:
+      enabled: false
+    redis:
+      enabled: false
   metrics:
     tags:
       application: ${spring.application.name}
