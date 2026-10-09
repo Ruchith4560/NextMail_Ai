@@ -16,12 +16,25 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AutomationRuleEngine {
 
     private final AutomationRuleRepository ruleRepository;
     private final FollowUpReminderRepository followUpRepository;
+    private final java.util.Optional<com.nextmail.common.metrics.NextMailMetrics> metrics;
+
+    public AutomationRuleEngine(AutomationRuleRepository ruleRepository, FollowUpReminderRepository followUpRepository) {
+        this(ruleRepository, followUpRepository, java.util.Optional.empty());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AutomationRuleEngine(AutomationRuleRepository ruleRepository,
+                                FollowUpReminderRepository followUpRepository,
+                                java.util.Optional<com.nextmail.common.metrics.NextMailMetrics> metrics) {
+        this.ruleRepository = ruleRepository;
+        this.followUpRepository = followUpRepository;
+        this.metrics = metrics != null ? metrics : java.util.Optional.empty();
+    }
 
     @Transactional
     public RuleResponseDTO createRule(UUID userId, CreateRuleRequest request) {
@@ -85,6 +98,7 @@ public class AutomationRuleEngine {
                     executeAction(rule, message, thread);
                     rule.setExecutionCount(rule.getExecutionCount() + 1);
                     ruleRepository.save(rule);
+                    metrics.ifPresent(com.nextmail.common.metrics.NextMailMetrics::recordRuleExecution);
                     log.info("Executed rule '{}' ({}) on message {} in thread {}",
                             rule.getName(), rule.getId(), message.getId(), thread.getId());
                 }

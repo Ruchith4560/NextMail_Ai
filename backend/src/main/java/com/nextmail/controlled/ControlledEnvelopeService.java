@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ControlledEnvelopeService {
 
@@ -27,6 +26,29 @@ public class ControlledEnvelopeService {
     private final EnvelopeAuditLogRepository auditLogRepository;
     private final MessageRepository messageRepository;
     private final Optional<SimpMessagingTemplate> messagingTemplate;
+    private final Optional<com.nextmail.common.metrics.NextMailMetrics> metrics;
+
+    public ControlledEnvelopeService(
+            ControlledEnvelopeRepository envelopeRepository,
+            EnvelopeAuditLogRepository auditLogRepository,
+            MessageRepository messageRepository,
+            Optional<SimpMessagingTemplate> messagingTemplate) {
+        this(envelopeRepository, auditLogRepository, messageRepository, messagingTemplate, Optional.empty());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ControlledEnvelopeService(
+            ControlledEnvelopeRepository envelopeRepository,
+            EnvelopeAuditLogRepository auditLogRepository,
+            MessageRepository messageRepository,
+            Optional<SimpMessagingTemplate> messagingTemplate,
+            Optional<com.nextmail.common.metrics.NextMailMetrics> metrics) {
+        this.envelopeRepository = envelopeRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.messageRepository = messageRepository;
+        this.messagingTemplate = messagingTemplate != null ? messagingTemplate : Optional.empty();
+        this.metrics = metrics != null ? metrics : Optional.empty();
+    }
 
     @Transactional
     public ControlledEnvelope createEnvelope(
@@ -114,6 +136,7 @@ public class ControlledEnvelopeService {
         });
 
         log.info("Revoked Controlled Envelope {} for message {}", updated.getId(), messageId);
+        metrics.ifPresent(com.nextmail.common.metrics.NextMailMetrics::recordControlledRevocation);
         return updated;
     }
 
@@ -159,6 +182,7 @@ public class ControlledEnvelopeService {
             envelope.setPayloadShredded(true);
             envelopeRepository.save(envelope);
         }
+        metrics.ifPresent(m -> m.recordShreddedPayloads(expired.size()));
     }
 
     public ControlledEnvelopeDTO mapToDTO(ControlledEnvelope envelope) {

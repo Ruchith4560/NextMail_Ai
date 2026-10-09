@@ -44,6 +44,9 @@ public class SearchService {
     @Autowired(required = false)
     private ElasticsearchOperations elasticsearchOperations;
 
+    @Autowired(required = false)
+    private com.nextmail.common.metrics.NextMailMetrics metrics;
+
     /**
      * Executes natural language and structured search for a given user.
      */
@@ -53,6 +56,13 @@ public class SearchService {
         int size = criteria.getSize() > 0 ? criteria.getSize() : 20;
         Pageable pageable = PageRequest.of(page, size);
 
+        if (metrics != null) {
+            return metrics.recordSearchExecution(() -> executeSearchInternal(userId, criteria, pageable));
+        }
+        return executeSearchInternal(userId, criteria, pageable);
+    }
+
+    private SearchPageResponse executeSearchInternal(UUID userId, SearchCriteria criteria, Pageable pageable) {
         // Attempt Elasticsearch search first if beans are initialized
         if (elasticsearchOperations != null && emailSearchRepository != null) {
             try {

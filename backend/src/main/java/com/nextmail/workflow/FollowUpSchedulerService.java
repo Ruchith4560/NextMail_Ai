@@ -20,7 +20,6 @@ import java.util.List;
  * checks for intermediate inbound replies, auto-resolves or triggers escalation alerts.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class FollowUpSchedulerService {
 
@@ -28,6 +27,29 @@ public class FollowUpSchedulerService {
     private final ThreadRepository threadRepository;
     private final MessageRepository messageRepository;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final java.util.Optional<com.nextmail.common.metrics.NextMailMetrics> metrics;
+
+    public FollowUpSchedulerService(
+            FollowUpReminderRepository followUpRepository,
+            ThreadRepository threadRepository,
+            MessageRepository messageRepository,
+            org.springframework.context.ApplicationEventPublisher eventPublisher) {
+        this(followUpRepository, threadRepository, messageRepository, eventPublisher, java.util.Optional.empty());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public FollowUpSchedulerService(
+            FollowUpReminderRepository followUpRepository,
+            ThreadRepository threadRepository,
+            MessageRepository messageRepository,
+            org.springframework.context.ApplicationEventPublisher eventPublisher,
+            java.util.Optional<com.nextmail.common.metrics.NextMailMetrics> metrics) {
+        this.followUpRepository = followUpRepository;
+        this.threadRepository = threadRepository;
+        this.messageRepository = messageRepository;
+        this.eventPublisher = eventPublisher;
+        this.metrics = metrics != null ? metrics : java.util.Optional.empty();
+    }
 
 
     @Scheduled(fixedDelay = 30000)
@@ -90,6 +112,8 @@ public class FollowUpSchedulerService {
             threadRepository.save(thread);
             log.info("Triggered follow-up reminder {} and escalated thread {} to {}",
                     reminder.getId(), thread.getId(), thread.getPriorityTier());
+
+            metrics.ifPresent(com.nextmail.common.metrics.NextMailMetrics::recordFollowUpTriggered);
 
             eventPublisher.publishEvent(new com.nextmail.workflow.event.FollowUpTriggeredEvent(
                     reminder.getId(),

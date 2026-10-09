@@ -23,7 +23,6 @@ import java.util.regex.Pattern;
  * for conversation summarization, priority scoring, action item extraction, and draft reply generation.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AiIntelligenceService {
 
@@ -32,6 +31,32 @@ public class AiIntelligenceService {
     private final MessageRepository messageRepository;
     private final ThreadSummaryRepository threadSummaryRepository;
     private final ObjectMapper objectMapper;
+    private final java.util.Optional<com.nextmail.common.metrics.NextMailMetrics> metrics;
+
+    public AiIntelligenceService(
+            GeminiAiClient geminiAiClient,
+            ThreadRepository threadRepository,
+            MessageRepository messageRepository,
+            ThreadSummaryRepository threadSummaryRepository,
+            ObjectMapper objectMapper) {
+        this(geminiAiClient, threadRepository, messageRepository, threadSummaryRepository, objectMapper, java.util.Optional.empty());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AiIntelligenceService(
+            GeminiAiClient geminiAiClient,
+            ThreadRepository threadRepository,
+            MessageRepository messageRepository,
+            ThreadSummaryRepository threadSummaryRepository,
+            ObjectMapper objectMapper,
+            java.util.Optional<com.nextmail.common.metrics.NextMailMetrics> metrics) {
+        this.geminiAiClient = geminiAiClient;
+        this.threadRepository = threadRepository;
+        this.messageRepository = messageRepository;
+        this.threadSummaryRepository = threadSummaryRepository;
+        this.objectMapper = objectMapper;
+        this.metrics = metrics != null ? metrics : java.util.Optional.empty();
+    }
 
     private static final Pattern URGENT_PATTERN = Pattern.compile(
             "\\b(urgent|asap|deadline|p0|p1|outage|blocker|failover|immediate|emergency)\\b",
@@ -68,7 +93,9 @@ public class AiIntelligenceService {
         }
 
         // Generate fresh summary via Gemini or Heuristic fallback
-        AiSummaryResponse generated = generateSummaryInternal(thread, messages);
+        AiSummaryResponse generated = metrics
+                .map(m -> m.recordAiReasoning("summarize", () -> generateSummaryInternal(thread, messages)))
+                .orElseGet(() -> generateSummaryInternal(thread, messages));
 
         // Update Thread entity priority fields
         thread.setPriorityTier(generated.getPriorityTier());
@@ -115,8 +142,15 @@ public class AiIntelligenceService {
             throw new IllegalStateException("Cannot reply to empty thread");
         }
 
-        Message lastMessage = messages.get(messages.size() - 1);
         ReplyTone tone = request.getTone() != null ? request.getTone() : ReplyTone.PROFESSIONAL;
+
+        return metrics
+                .map(m -> m.recordAiReasoning("reply", () -> generateReplyInternal(thread, messages, tone, request)))
+                .orElseGet(() -> generateReplyInternal(thread, messages, tone, request));
+    }
+
+    private AiReplyResponse generateReplyInternal(Thread thread, List<Message> messages, ReplyTone tone, AiReplyRequest request) {
+        Message lastMessage = messages.get(messages.size() - 1);
 
         if (geminiAiClient.isConfigured()) {
             String systemInstruction = "You are NextMail AI Reply Assistant. Generate a contextual, well-crafted email reply draft.\n" +

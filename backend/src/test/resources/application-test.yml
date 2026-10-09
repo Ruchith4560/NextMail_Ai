@@ -32,6 +32,28 @@ spring:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    mail:
+      enabled: false
+    elasticsearch:
+      enabled: false
+    redis:
+      enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
 nextmail:
   security:
     jwt:

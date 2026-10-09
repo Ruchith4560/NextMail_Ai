@@ -66,6 +66,26 @@ management:
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${ENVIRONMENT:production}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        nextmail.ai.reasoning.timer: true
+        nextmail.search.execution.timer: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+logging:
+  pattern:
+    level: "%5p [cid=%X{correlationId:-none}]"
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [cid=%X{correlationId:-none}] [%thread] %logger{40} : %msg%n"
 
 # NextMail Custom Configuration
 nextmail:

@@ -25,6 +25,7 @@ public class IdempotentIngestionService {
     private final MessageRepository messageRepository;
     private final JwzThreadingService threadingService;
     private final ApplicationEventPublisher eventPublisher;
+    private final Optional<com.nextmail.common.metrics.NextMailMetrics> metrics;
 
     @Transactional
     public Message ingestEmail(UUID userId, NormalizedEmail normalized) {
@@ -83,6 +84,8 @@ public class IdempotentIngestionService {
 
         Message saved = messageRepository.save(message);
         log.info("Successfully ingested message {} into thread {}", saved.getId(), thread.getId());
+
+        metrics.ifPresent(m -> m.recordEmailIngested("inbound"));
 
         // 5. Emit EmailIngestedEvent for decoupled async tasks (Search, AI, Notifications)
         eventPublisher.publishEvent(EmailIngestedEvent.builder()

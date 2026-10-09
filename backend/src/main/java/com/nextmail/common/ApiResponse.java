@@ -3,6 +3,7 @@ package com.nextmail.common;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Value;
+import org.slf4j.MDC;
 
 import java.time.Instant;
 import java.util.List;
@@ -16,12 +17,14 @@ public class ApiResponse<T> {
     T data;
     List<String> errors;
     Instant timestamp;
+    String correlationId;
 
     public static <T> ApiResponse<T> ok(T data) {
         return ApiResponse.<T>builder()
                 .success(true)
                 .data(data)
                 .timestamp(Instant.now())
+                .correlationId(MDC.get("correlationId"))
                 .build();
     }
 
@@ -31,6 +34,7 @@ public class ApiResponse<T> {
                 .message(message)
                 .data(data)
                 .timestamp(Instant.now())
+                .correlationId(MDC.get("correlationId"))
                 .build();
     }
 
@@ -40,6 +44,7 @@ public class ApiResponse<T> {
                 .message(message)
                 .errors(errors)
                 .timestamp(Instant.now())
+                .correlationId(MDC.get("correlationId"))
                 .build();
     }
 
@@ -48,6 +53,7 @@ public class ApiResponse<T> {
                 .success(false)
                 .message(message)
                 .timestamp(Instant.now())
+                .correlationId(MDC.get("correlationId"))
                 .build();
     }
 }

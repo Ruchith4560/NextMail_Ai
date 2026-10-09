@@ -31,6 +31,7 @@ public class MailService {
     private final com.nextmail.mail.ingest.SmtpOutboundDeliveryService smtpDeliveryService;
     private final com.nextmail.attachment.AttachmentService attachmentService;
     private final com.nextmail.controlled.ControlledEnvelopeService controlledEnvelopeService;
+    private final java.util.Optional<com.nextmail.common.metrics.NextMailMetrics> metrics;
 
     @Transactional(readOnly = true)
     public Page<ThreadSummaryResponse> getThreads(UUID userId, MailFolder folder, int page, int size) {
@@ -189,6 +190,8 @@ public class MailService {
                 inReplyTo,
                 references
         );
+
+        metrics.ifPresent(com.nextmail.common.metrics.NextMailMetrics::recordEmailSent);
 
         return mapToMessageDetail(savedMessage);
     }
