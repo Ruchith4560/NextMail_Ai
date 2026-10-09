@@ -24,6 +24,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final TokenBlacklistService blacklistService;
+    private final GoogleTokenVerifierService googleTokenVerifierService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -59,6 +60,28 @@ public class AuthService {
         }
 
         log.info("Successful login for user ID: {}", user.getId());
+        return createAuthSession(user);
+    }
+
+    @Transactional
+    public AuthResponse loginWithGoogle(GoogleAuthRequest request) {
+        GoogleUserInfo googleUser = googleTokenVerifierService.verifyToken(request.getIdToken());
+        String normalizedEmail = googleUser.getEmail().toLowerCase().trim();
+
+        User user = userRepository.findByEmail(normalizedEmail).orElseGet(() -> {
+            log.info("Auto-provisioning new NextMail account for verified Google user: {}", normalizedEmail);
+            User newUser = User.builder()
+                    .email(normalizedEmail)
+                    .fullName(googleUser.getName() != null && !googleUser.getName().isBlank() 
+                            ? googleUser.getName().trim() 
+                            : normalizedEmail.split("@")[0])
+                    .passwordHash(passwordEncoder.encode("OAUTH_GOOGLE_" + UUID.randomUUID()))
+                    .role(Role.ROLE_USER)
+                    .build();
+            return userRepository.save(newUser);
+        });
+
+        log.info("Successful Google OAuth2 login for user ID: {} ({})", user.getId(), user.getEmail());
         return createAuthSession(user);
     }
 

@@ -29,6 +29,7 @@ interface AuthState {
   setAuthModalOpen: (open: boolean) => void;
   setError: (err: string | null) => void;
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: (idToken: string) => Promise<boolean>;
   register: (email: string, password: string, fullName: string) => Promise<boolean>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
@@ -65,6 +66,31 @@ export const useAuthStore = create<AuthState>((set) => ({
       return false;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Invalid credentials';
+      set({ isLoading: false, error: msg });
+      return false;
+    }
+  },
+
+  loginWithGoogle: async (idToken: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiClient.post<AuthResponse>('/auth/google', { idToken });
+      if (res.data?.accessToken) {
+        localStorage.setItem('nextmail_token', res.data.accessToken);
+        localStorage.setItem('nextmail_refresh_token', res.data.refreshToken);
+        set({
+          token: res.data.accessToken,
+          user: res.data.user,
+          isAuthenticated: true,
+          isAuthModalOpen: false,
+          isLoading: false,
+        });
+        return true;
+      }
+      set({ isLoading: false, error: 'Google login failed: No access token received' });
+      return false;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Google authentication failed';
       set({ isLoading: false, error: msg });
       return false;
     }

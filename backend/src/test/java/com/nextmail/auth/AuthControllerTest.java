@@ -1,6 +1,7 @@
 package com.nextmail.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nextmail.auth.dto.GoogleAuthRequest;
 import com.nextmail.auth.dto.LoginRequest;
 import com.nextmail.auth.dto.RefreshTokenRequest;
 import com.nextmail.auth.dto.RegisterRequest;
@@ -221,5 +222,66 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.email").value("me.test@nextmail.local"))
                 .andExpect(jsonPath("$.data.fullName").value("Current User"));
+    }
+
+    @Test
+    @DisplayName("Google OAuth2 login successfully auto-provisions new user and returns JWT session")
+    void shouldLoginWithGoogleAndAutoProvisionAccount() throws Exception {
+        GoogleAuthRequest request = GoogleAuthRequest.builder()
+                .idToken("mock_google_token_sophia.clark@gmail.com")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.user.email").value("sophia.clark@gmail.com"))
+                .andExpect(jsonPath("$.data.user.fullName").value("Sophia clark"));
+    }
+
+    @Test
+    @DisplayName("Google OAuth2 login succeeds for already registered email account")
+    void shouldLoginExistingUserWithGoogle() throws Exception {
+        // Pre-create user with local credentials
+        RegisterRequest registerReq = RegisterRequest.builder()
+                .email("existing.user@gmail.com")
+                .password("ExistingPassword123!")
+                .fullName("Existing User")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerReq)))
+                .andExpect(status().isCreated());
+
+        // Now login via Google
+        GoogleAuthRequest googleReq = GoogleAuthRequest.builder()
+                .idToken("mock_google_token_existing.user@gmail.com")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(googleReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.user.email").value("existing.user@gmail.com"))
+                .andExpect(jsonPath("$.data.user.fullName").value("Existing User"));
+    }
+
+    @Test
+    @DisplayName("Google OAuth2 login rejects blank token")
+    void shouldRejectBlankGoogleToken() throws Exception {
+        GoogleAuthRequest request = GoogleAuthRequest.builder()
+                .idToken("   ")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
     }
 }
