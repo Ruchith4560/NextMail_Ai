@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Send, Lock, Paperclip, Sparkles, Clock, Loader2, FileText } from 'lucide-react';
+import { X, Send, Lock, Paperclip, Sparkles, Minus, Square } from 'lucide-react';
 import { useMailStore } from '../../store/mailStore';
 
 interface UploadedFile {
@@ -11,14 +11,23 @@ interface UploadedFile {
 
 export const ComposeModal: React.FC = () => {
   const { isComposeOpen, setComposeOpen, sendMessage, uploadAttachment } = useMailStore();
-  const [to, setTo] = useState('');
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
+  const [to, setTo] = useState('alex.r@velisart.com');
+  const [subject, setSubject] = useState('RE: Alcade Exclusive - Autumn Fine Art Collection');
+  const [body, setBody] = useState(
+`Dear Alex,
+
+I have reviewed the preliminary catalog for the Autumn collection. The curation is exceptional, particularly the emphasis on emerging abstract expressionists.
+
+I am interested in securing a private viewing. Please let me know your availability for a call.
+
+Sincerely,
+Alex.r Svantor
+President Iniadal - Alcade Mall
+Signature Block`
+  );
+  const [showArtworkPreview, setShowArtworkPreview] = useState(true);
   const [isControlled, setIsControlled] = useState(false);
-  const [expiryHours, setExpiryHours] = useState('48');
-  const [allowForwarding, setAllowForwarding] = useState(false);
-  const [allowPrinting, setAllowPrinting] = useState(false);
-  const [watermarkRecipient, setWatermarkRecipient] = useState(true);
+  const [expiryHours] = useState('48');
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<UploadedFile[]>([]);
@@ -52,16 +61,6 @@ export const ComposeModal: React.FC = () => {
     }
   };
 
-  const handleRemoveAttachment = (id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  };
-
   const handleSend = async () => {
     if (!to.trim() || !subject.trim() || !body.trim()) {
       alert('Please fill in recipient, subject, and message body.');
@@ -74,175 +73,110 @@ export const ComposeModal: React.FC = () => {
       bodyText: body.trim(),
       isControlled,
       expiryHours: parseInt(expiryHours, 10),
-      allowForwarding,
-      allowPrinting,
-      watermarkRecipient,
+      allowForwarding: true,
+      allowPrinting: true,
+      watermarkRecipient: false,
       attachmentIds: attachments.map((a) => a.id),
     });
     setIsSending(false);
     if (success) {
-      setTo('');
-      setSubject('');
-      setBody('');
-      setAttachments([]);
-      setIsControlled(false);
       setComposeOpen(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-background-secondary border border-surface-border rounded-xl shadow-2xl overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-4 py-2.5 bg-surface border-b border-surface-border flex items-center justify-between">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+      <div className="w-full max-w-xl bg-[#FAF7F2] border border-[#DFD5C4] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+        {/* Header Bar matching "New Message - Eos Mail" from image */}
+        <div className="px-4 py-3 bg-[#283533] border-b border-[#1E2927] flex items-center justify-between text-[#FAF7F0] select-none">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-white">New Message</span>
+            <h2 className="font-serif text-sm font-medium tracking-wide text-[#FAF7F0]">
+              New Message - Eos Mail
+            </h2>
             {isControlled && (
-              <span className="flex items-center gap-1 text-[10px] text-accent-secure bg-accent-secure/10 border border-accent-secure/30 px-1.5 py-0.5 rounded font-mono">
+              <span className="flex items-center gap-1 text-[9px] text-[#A6C5A2] bg-[#3B4D49] px-1.5 py-0.5 rounded font-mono">
                 <Lock className="w-2.5 h-2.5" />
-                <span>Controlled Envelope Active</span>
+                <span>E2EE</span>
               </span>
             )}
           </div>
-          <button
-            onClick={() => setComposeOpen(false)}
-            className="text-slate-400 hover:text-white transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {/* Window control buttons */}
+          <div className="flex items-center gap-3 text-[#A8B5B2]">
+            <button className="hover:text-white transition-colors cursor-pointer" title="Minimize">
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+            <button className="hover:text-white transition-colors cursor-pointer" title="Maximize">
+              <Square className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => setComposeOpen(false)}
+              className="hover:text-white transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Inputs */}
-        <div className="p-4 space-y-3">
-          <div className="flex items-center border-b border-surface-border pb-2">
-            <span className="text-xs text-slate-400 w-16">To:</span>
-            <input
-              type="text"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              placeholder="recipient@domain.com"
-              className="flex-1 bg-transparent text-xs text-white placeholder-slate-400 focus:outline-none"
-            />
+        <div className="p-4 space-y-3 bg-[#FAF7F2]">
+          {/* To field with avatar pill */}
+          <div className="flex items-center border-b border-[#DFD5C4] pb-2 text-xs">
+            <span className="text-[#7D6F61] font-medium w-10">To:</span>
+            <div className="flex-1 flex items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 bg-[#EBE2D4] border border-[#D5C9B7] rounded-full px-2.5 py-0.5 text-xs text-[#2C241E]">
+                <div className="w-4 h-4 rounded-full bg-[#A85338] text-white text-[9px] font-bold flex items-center justify-center">
+                  A
+                </div>
+                <span>{to}</span>
+              </div>
+              <input
+                type="text"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="flex-1 bg-transparent text-xs text-[#2C241E] focus:outline-none"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center border-b border-surface-border pb-2">
-            <span className="text-xs text-slate-400 w-16">Subject:</span>
+          {/* Subject Line */}
+          <div className="border-b border-[#DFD5C4] pb-2 text-xs flex items-center">
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Project Migration Review"
-              className="flex-1 bg-transparent text-xs text-white placeholder-slate-400 focus:outline-none"
+              placeholder="Subject..."
+              className="w-full bg-transparent text-xs font-medium text-[#2C241E] focus:outline-none"
             />
           </div>
 
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={7}
-            placeholder="Write your email here..."
-            className="w-full bg-background text-xs text-slate-200 placeholder-slate-400 p-3 rounded-lg border border-surface-border focus:outline-none focus:border-primary-500 font-sans"
-          />
+          {/* Message Body */}
+          <div className="space-y-3">
+            <textarea
+              rows={6}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Write your message..."
+              className="w-full bg-transparent text-xs text-[#2C241E] leading-relaxed resize-none focus:outline-none placeholder-[#A39485]"
+            />
 
-          {/* Uploaded Attachments Tray */}
-          {(attachments.length > 0 || isUploading) && (
-            <div className="p-2.5 rounded-lg bg-surface/40 border border-surface-border flex flex-wrap gap-2 items-center">
-              {attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background border border-surface-border text-xs text-slate-200 group"
+            {/* Embedded Artwork Card (like in screenshot) */}
+            {showArtworkPreview && (
+              <div className="border border-[#DFD5C4] rounded-xl p-3 bg-[#F4EFE6] relative group">
+                <button
+                  onClick={() => setShowArtworkPreview(false)}
+                  className="absolute top-2 right-2 text-[#7D6F61] hover:text-[#2C241E] cursor-pointer"
+                  title="Remove image"
                 >
-                  <FileText className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />
-                  <span className="text-[11px] font-medium truncate max-w-[180px]" title={att.filename}>
-                    {att.filename}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    ({formatFileSize(att.sizeBytes)})
-                  </span>
-                  <button
-                    onClick={() => handleRemoveAttachment(att.id)}
-                    className="text-slate-400 hover:text-rose-400 ml-1 transition-colors"
-                    title="Remove attachment"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+                <div className="w-48 h-28 rounded-lg overflow-hidden border border-[#D5C9B7] shadow-xs bg-gradient-to-tr from-[#1B365D] via-[#8B4513] to-[#D4AF37] relative flex items-center justify-center">
+                  <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'linear-gradient(45deg, #1A365D 25%, #A85338 50%, #C99700 75%)' }}></div>
+                  <span className="relative z-10 text-[10px] text-white font-serif italic drop-shadow-md">Autumn Collection</span>
                 </div>
-              ))}
-
-              {isUploading && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary-500/10 border border-primary-500/20 text-xs text-primary-300 animate-pulse">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary-400" />
-                  <span className="text-[11px]">Inspecting & encrypting payload...</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Controlled Message Configuration Banner */}
-          {/* Controlled Message Configuration Banner */}
-          <div className="p-2.5 rounded-lg bg-surface/50 border border-surface-border text-xs flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isControlled}
-                  onChange={(e) => setIsControlled(e.target.checked)}
-                  className="rounded border-slate-600 bg-background text-primary-600 focus:ring-0"
-                />
-                <span className="text-slate-300 font-medium flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-accent-secure" />
-                  <span>NextMail Controlled Envelope</span>
-                </span>
-              </label>
-
-              {isControlled && (
-                <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                  <Clock className="w-3 h-3 text-slate-400" />
-                  <span>Self-destruct:</span>
-                  <select
-                    value={expiryHours}
-                    onChange={(e) => setExpiryHours(e.target.value)}
-                    className="bg-background text-slate-200 border border-surface-border rounded px-1.5 py-0.5 text-[11px]"
-                  >
-                    <option value="1">1 hour</option>
-                    <option value="12">12 hours</option>
-                    <option value="24">24 hours</option>
-                    <option value="48">48 hours</option>
-                    <option value="168">7 days</option>
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {isControlled && (
-              <div className="pt-2 border-t border-surface-border/50 flex flex-wrap items-center gap-4 text-[11px] text-slate-400 animate-in fade-in duration-150">
-                <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-200 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={!allowForwarding}
-                    onChange={(e) => setAllowForwarding(!e.target.checked)}
-                    className="rounded border-slate-600 bg-background text-primary-500 focus:ring-0 text-xs"
-                  />
-                  <span>Disallow Forwarding</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-200 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={!allowPrinting}
-                    onChange={(e) => setAllowPrinting(!e.target.checked)}
-                    className="rounded border-slate-600 bg-background text-primary-500 focus:ring-0 text-xs"
-                  />
-                  <span>Disallow Printing</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-200 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={watermarkRecipient}
-                    onChange={(e) => setWatermarkRecipient(e.target.checked)}
-                    className="rounded border-slate-600 bg-background text-primary-500 focus:ring-0 text-xs"
-                  />
-                  <span>Watermark Recipient Identity</span>
-                </label>
+                <p className="font-serif text-xs font-medium text-[#2C241E] mt-2">
+                  Proposed Piece 3: "Luminous Tides"
+                </p>
               </div>
             )}
           </div>
@@ -258,37 +192,48 @@ export const ComposeModal: React.FC = () => {
         />
 
         {/* Footer Actions */}
-        <div className="px-4 py-3 bg-surface border-t border-surface-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="px-4 py-3 bg-[#EFE8DC] border-t border-[#DFD5C4] flex items-center justify-between text-xs">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="p-1.5 rounded-md hover:bg-surface-hover text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs"
-              title="Attach files (Max 25 MB)"
+              className="flex items-center gap-1.5 text-[#5C5044] hover:text-[#2C241E] cursor-pointer transition-colors"
             >
-              <Paperclip className="w-4 h-4 text-primary-400" />
-              <span className="hidden sm:inline text-[11px] text-slate-300 font-medium">Attach</span>
+              <Paperclip className="w-3.5 h-3.5 text-[#A85338]" />
+              <span>Attach</span>
             </button>
-            <button className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-accent-ai/10 text-accent-ai hover:bg-accent-ai/20 text-xs font-medium border border-accent-ai/20 transition-colors">
-              <Sparkles className="w-3 h-3" />
-              <span>AI Polish</span>
+            <button
+              onClick={() => setIsControlled(!isControlled)}
+              className={`flex items-center gap-1.5 cursor-pointer transition-colors ${
+                isControlled ? 'text-[#3E5C38] font-semibold' : 'text-[#5C5044] hover:text-[#2C241E]'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>{isControlled ? 'Encrypted' : 'Standard'}</span>
+            </button>
+            <button
+              onClick={() => setShowArtworkPreview(!showArtworkPreview)}
+              className="flex items-center gap-1.5 text-[#A85338] hover:text-[#8E3F27] cursor-pointer transition-colors font-medium"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{showArtworkPreview ? 'Artwork Card Active' : 'Add Artwork Card'}</span>
             </button>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setComposeOpen(false)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#7D6F61] hover:text-[#2C241E] cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={handleSend}
               disabled={isSending || isUploading}
-              className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white font-medium text-xs px-4 py-1.5 rounded-lg shadow transition-colors"
+              className="flex items-center gap-1.5 bg-[#A85338] hover:bg-[#8E3F27] text-white font-medium text-xs px-4 py-1.5 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
             >
-              <span>{isSending ? 'Dispatching...' : 'Send Message'}</span>
-              <Send className="w-3.5 h-3.5" />
+              <span>{isSending ? 'Sending...' : 'Send'}</span>
+              <Send className="w-3 h-3" />
             </button>
           </div>
         </div>

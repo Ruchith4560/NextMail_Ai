@@ -9,32 +9,52 @@ export default {
     extend: {
       colors: {
         background: {
-          DEFAULT: '#0B0F17',
-          secondary: '#111827',
-          tertiary: '#1F2937',
+          DEFAULT: '#F5EFE6', // Warm parchment canvas
+          secondary: '#EFE8DC', // Sidebar & cards
+          tertiary: '#E5DCCF', // Input fields, active pills
+          dark: '#24302E', // Deep forest bronze window header
         },
         surface: {
-          DEFAULT: '#111827',
-          hover: '#1F2937',
-          active: '#374151',
-          border: '#1F2937',
+          DEFAULT: '#FAF7F0', // Message reading surface
+          hover: '#ECE4D7',
+          active: '#E4D8C6',
+          border: '#DFD5C4',
+          sage: '#D2DCD0', // Sage green search & badges
+          sageDark: '#4F614B',
+        },
+        terracotta: {
+          DEFAULT: '#A85338',
+          light: '#BF6347',
+          dark: '#8B3F27',
+          tint: '#F5EAE5',
+        },
+        forest: {
+          DEFAULT: '#283533',
+          dark: '#1F2B29',
+          light: '#364543',
+        },
+        ink: {
+          primary: '#2C241E',
+          secondary: '#726558',
+          muted: '#9E9184',
         },
         primary: {
-          50: '#EEF2FF',
-          100: '#E0E7FF',
-          500: '#6366F1',
-          600: '#4F46E5',
-          700: '#4338CA',
+          50: '#F5EAE5',
+          100: '#EBD5CD',
+          500: '#A85338',
+          600: '#8E3F27',
+          700: '#75321E',
         },
         accent: {
-          ai: '#8B5CF6',
-          urgent: '#EF4444',
-          important: '#F59E0B',
-          secure: '#10B981',
+          ai: '#A85338',
+          urgent: '#C04A2F',
+          important: '#C57E35',
+          secure: '#4F614B',
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        serif: ['Newsreader', 'Playfair Display', 'Cormorant Garamond', 'Georgia', 'serif'],
+        sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
     },

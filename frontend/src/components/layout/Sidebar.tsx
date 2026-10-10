@@ -3,16 +3,13 @@ import {
   Inbox, 
   Send, 
   FileText, 
-  Archive, 
+  Folder, 
   Trash2, 
-  AlertOctagon, 
-  Star, 
-  ShieldCheck, 
-  Lock, 
-  Plus,
-  Sparkles,
-  LogOut,
-  LogIn
+  Plus, 
+  User, 
+  ArrowRight,
+  Mail,
+  PenSquare
 } from 'lucide-react';
 import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
@@ -22,149 +19,116 @@ interface NavItem {
   id: MailboxFolder;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  count?: number;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'inbox', label: 'Inbox', icon: Inbox, count: 2 },
-  { id: 'starred', label: 'Starred', icon: Star, count: 2 },
+const PRIMARY_NAV: NavItem[] = [
+  { id: 'inbox', label: 'Inbox', icon: Inbox },
   { id: 'sent', label: 'Sent', icon: Send },
-  { id: 'drafts', label: 'Drafts', icon: FileText, count: 1 },
-  { id: 'archive', label: 'Archive', icon: Archive },
-  { id: 'spam', label: 'Spam', icon: AlertOctagon },
+  { id: 'drafts', label: 'Drafts', icon: FileText },
+];
+
+const LABELS = [
+  { id: 'art-acquisition', label: 'Art Acquisition', icon: Folder },
+  { id: 'investment-portfolio', label: 'Investment Portfolio', icon: Folder },
+  { id: 'low-stats', label: 'Low Stats', icon: Folder },
   { id: 'trash', label: 'Trash', icon: Trash2 },
 ];
 
 export const Sidebar: React.FC = () => {
   const { currentFolder, setCurrentFolder, setComposeOpen } = useMailStore();
-  const { user, isAuthenticated, logout, setAuthModalOpen } = useAuthStore();
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  };
+  const { user, isAuthenticated, setAuthModalOpen } = useAuthStore();
 
   return (
-    <aside className="w-64 bg-background-secondary border-r border-surface-border flex flex-col justify-between p-3 select-none">
-      <div className="space-y-4">
-        {/* Brand Header */}
-        <div className="flex items-center justify-between px-2 py-1.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary-600 to-accent-ai flex items-center justify-center shadow-lg shadow-primary-500/20">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-sm tracking-tight text-white">NextMail</span>
-                <span className="text-[10px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-primary-500/20 text-primary-300 font-semibold border border-primary-500/30">
-                  AI OS
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 font-medium">Enterprise Edition</p>
-            </div>
-          </div>
+    <aside className="w-56 bg-[#EFE8DC] border-r border-[#DFD5C4] flex flex-col justify-between p-4 select-none flex-shrink-0">
+      <div className="space-y-5">
+        {/* Brand Header: Eos Mail */}
+        <div className="flex items-center gap-2 px-1">
+          <Mail className="w-5 h-5 text-[#A85338]" strokeWidth={1.75} />
+          <h1 className="font-serif text-lg font-semibold tracking-tight text-[#2C241E]">
+            Eos Mail
+          </h1>
         </div>
 
-        {/* Compose Button */}
+        {/* Compose New Message Pill */}
         <button
           onClick={() => setComposeOpen(true)}
-          className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-500 active:bg-primary-700 text-white font-medium text-xs py-2 px-3 rounded-lg shadow-md transition-all duration-150 group"
+          className="w-full flex items-center justify-center gap-2 bg-[#FAF7F0] hover:bg-[#F3ECE0] text-[#2C241E] border border-[#DFD5C4] font-medium text-xs py-2 px-3 rounded-lg shadow-2xs transition-all duration-150 cursor-pointer"
         >
-          <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
+          <PenSquare className="w-3.5 h-3.5 text-[#A85338]" />
           <span>New Message</span>
-          <kbd className="ml-auto text-[10px] bg-primary-700/60 px-1.5 py-0.5 rounded text-primary-200 font-mono">C</kbd>
         </button>
 
-        {/* Core Navigation */}
-        <nav className="space-y-0.5">
-          <div className="px-2 pb-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Mailboxes
-          </div>
-          {NAV_ITEMS.map((item) => {
+        {/* Primary Navigation */}
+        <nav className="space-y-1">
+          {PRIMARY_NAV.map((item) => {
             const Icon = item.icon;
             const isActive = currentFolder === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setCurrentFolder(item.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   isActive
-                    ? 'bg-surface-active text-white shadow-sm'
-                    : 'text-slate-300 hover:bg-surface-hover hover:text-white'
+                    ? 'bg-[#E5DCCF] text-[#A85338] shadow-2xs font-semibold'
+                    : 'text-[#5C5044] hover:bg-[#EAE1D3] hover:text-[#2C241E]'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-primary-400' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.count ? (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isActive ? 'bg-primary-500 text-white' : 'bg-surface text-slate-400'
-                  }`}>
-                    {item.count}
-                  </span>
-                ) : null}
+                <Icon className={`w-4 h-4 ${isActive ? 'text-[#A85338]' : 'text-[#7D6F61]'}`} />
+                <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Intelligence & Controlled Envelopes */}
-        <div className="pt-2 border-t border-surface-border space-y-1">
-          <div className="px-2 pb-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-            <span>Specialized</span>
+        {/* Labels Section */}
+        <div className="space-y-1 pt-2">
+          <div className="flex items-center justify-between px-3 text-[11px] font-medium text-[#7D6F61]">
+            <span>Labels</span>
+            <button 
+              onClick={() => alert('New label created')} 
+              className="text-[#7D6F61] hover:text-[#2C241E] cursor-pointer"
+              title="Add Label"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:bg-surface-hover hover:text-white">
-            <div className="flex items-center gap-2.5">
-              <Lock className="w-4 h-4 text-accent-secure" />
-              <span>Controlled Envelopes</span>
-            </div>
-            <span className="text-[10px] text-accent-secure font-mono bg-accent-secure/10 px-1 rounded">E2EE</span>
-          </button>
-          <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:bg-surface-hover hover:text-white">
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Phishing Radar</span>
-            </div>
-            <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1 rounded">Clean</span>
-          </button>
+          {LABELS.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentFolder === (item.id as MailboxFolder);
+            return (
+              <button
+                key={item.id}
+                onClick={() => setCurrentFolder(item.id as MailboxFolder)}
+                className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  isActive
+                    ? 'bg-[#E5DCCF] text-[#A85338] font-semibold'
+                    : 'text-[#5C5044] hover:bg-[#EAE1D3] hover:text-[#2C241E]'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5 text-[#7D6F61]" strokeWidth={1.75} />
+                <span className="truncate">{item.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Account / Session Footer */}
-      <div className="pt-3 border-t border-surface-border">
-        {isAuthenticated && user ? (
-          <div className="flex items-center justify-between p-2 rounded-lg bg-surface/50 border border-surface-border">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-full bg-primary-600/30 text-primary-300 border border-primary-500/30 flex items-center justify-center font-bold text-xs">
-                {getInitials(user.fullName || user.email)}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-white truncate">{user.fullName || 'User'}</p>
-                <p className="text-[10px] text-slate-400 truncate font-mono">{user.email}</p>
-              </div>
+      {/* User Status / Login Pill at Bottom */}
+      <div className="pt-4">
+        <button
+          onClick={() => setAuthModalOpen(true)}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#D2DCD0] hover:bg-[#C7D3C5] text-[#364732] font-medium text-xs transition-colors cursor-pointer shadow-2xs"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-full bg-[#B9C6B6] flex items-center justify-center text-[#2A3826] font-bold text-[10px]">
+              <User className="w-3.5 h-3.5" />
             </div>
-            <button
-              onClick={() => logout()}
-              title="Logout session"
-              className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-surface transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
+            <span className="truncate">
+              {isAuthenticated && user ? user.fullName || user.email.split('@')[0] : 'Login'}
+            </span>
           </div>
-        ) : (
-          <button
-            onClick={() => setAuthModalOpen(true)}
-            className="w-full flex items-center justify-center gap-2 bg-surface hover:bg-surface-hover text-slate-200 border border-surface-border font-medium text-xs py-2 px-3 rounded-lg transition-colors"
-          >
-            <LogIn className="w-3.5 h-3.5 text-primary-400" />
-            <span>Sign In / Register</span>
-          </button>
-        )}
+          <ArrowRight className="w-3.5 h-3.5 text-[#4D6049]" />
+        </button>
       </div>
     </aside>
   );

@@ -64,7 +64,7 @@ export const AppLayout: React.FC = () => {
   }, [threads, selectedThreadId, setComposeOpen, setSelectedThreadId]);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-background text-slate-100 overflow-hidden font-sans">
+    <div className="h-screen w-screen flex flex-col bg-[#F5EFE6] text-[#2C241E] overflow-hidden font-sans">
       <Header />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />

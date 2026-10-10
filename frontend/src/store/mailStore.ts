@@ -267,6 +267,191 @@ interface MailState {
 // Initial demonstration data for high-fidelity SaaS presentation
 const INITIAL_DEMO_THREADS: EmailThread[] = [
   {
+    id: 'thread-eos-1',
+    subject: 'RE: Alcade Exclusive - Autumn Fine Art Collection',
+    snippet: 'I have reviewed the preliminary catalog for the Autumn collection. The curation is exceptional, particularly the emphasis on emerging abstract expressionists...',
+    messageCount: 1,
+    hasAttachments: true,
+    lastMessageAt: '10:42 AM',
+    isRead: false,
+    isStarred: true,
+    priorityTier: 'URGENT',
+    priorityScore: 0.98,
+    priorityReason: 'High-value private viewing inquiry from President of Alcade Mall.',
+    labels: ['Art Acquisition', 'Investment Portfolio'],
+    aiSummary: {
+      overview: 'Alex R. Svantor reviewed the Autumn collection catalog and requested a private viewing for abstract expressionist piece "Luminous Tides".',
+      decisions: [
+        'Curatorial emphasis on emerging abstract expressionists approved.',
+        'Private viewing scheduled for discussion.'
+      ],
+      actionItems: [
+        'Confirm availability for private viewing call with Alex Svantor'
+      ],
+      unresolvedQuestions: [
+        'Preferred dates for private viewing at Alcade Gallery?'
+      ],
+      deadlines: ['Autumn Collection Exclusive - Friday']
+    },
+    messages: [
+      {
+        id: 'msg-eos-1',
+        threadId: 'thread-eos-1',
+        sender: { name: 'alex.r@velisart.com', email: 'alex.r@velisart.com' },
+        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
+        subject: 'RE: Alcade Exclusive - Autumn Fine Art Collection',
+        snippet: 'I have reviewed the preliminary catalog for the Autumn collection...',
+        bodyText: `Dear Alex,
+
+I have reviewed the preliminary catalog for the Autumn collection. The curation is exceptional, particularly the emphasis on emerging abstract expressionists.
+
+I am interested in securing a private viewing. Please let me know your availability for a call.
+
+Sincerely,
+Alex.r Svantor
+President Iniadal - Alcade Mall
+Signature Block`,
+        sentAt: '10:42 AM',
+        receivedAt: '10:42 AM',
+        isRead: false,
+        isStarred: true,
+        attachments: [
+          { id: 'att-art-1', filename: 'Proposed_Piece_3_Luminous_Tides.jpg', contentType: 'image/jpeg', sizeBytes: 3420000 }
+        ],
+        securityFlags: {
+          isPhishingRisk: false,
+          spfValid: true,
+          dkimValid: true,
+          suspiciousLinksCount: 0
+        }
+      }
+    ]
+  },
+  {
+    id: 'thread-eos-2',
+    subject: 'RE: Alcade Exclusive - Autumn Fine Art Crt',
+    snippet: 'I have reviewed the preliminary catalog for the seasonal files on emerging expressionists...',
+    messageCount: 2,
+    hasAttachments: false,
+    lastMessageAt: 'Yesterday',
+    isRead: true,
+    isStarred: false,
+    priorityTier: 'NORMAL',
+    priorityScore: 0.6,
+    priorityReason: 'Standard follow-up inquiry',
+    labels: ['Art Acquisition'],
+    messages: [
+      {
+        id: 'msg-eos-2',
+        threadId: 'thread-eos-2',
+        sender: { name: 'alex.r@velisart.com', email: 'alex.r@velisart.com' },
+        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
+        subject: 'RE: Alcade Exclusive - Autumn Fine Art Crt',
+        snippet: 'I have reviewed the preliminary catalog for the seasonal files...',
+        bodyText: 'I have reviewed the preliminary catalog for the seasonal files on emerging expressionists. Let us discuss the terms next week.',
+        sentAt: 'Yesterday',
+        receivedAt: 'Yesterday',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
+      }
+    ]
+  },
+  {
+    id: 'thread-eos-3',
+    subject: 'High-end Account Portfolio',
+    snippet: 'I have reviewed the preliminary catalog for the essential files on emerging exploration...',
+    messageCount: 1,
+    hasAttachments: true,
+    lastMessageAt: 'Oct 8',
+    isRead: true,
+    isStarred: false,
+    priorityTier: 'IMPORTANT',
+    priorityScore: 0.85,
+    priorityReason: 'Quarterly portfolio report',
+    labels: ['Investment Portfolio'],
+    messages: [
+      {
+        id: 'msg-eos-3',
+        threadId: 'thread-eos-3',
+        sender: { name: 'alcadvisart.com', email: 'advisors@alcadvisart.com' },
+        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
+        subject: 'High-end Account Portfolio',
+        snippet: 'I have reviewed the preliminary catalog...',
+        bodyText: 'Quarterly portfolio report attached for your private review.',
+        sentAt: 'Oct 8',
+        receivedAt: 'Oct 8',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
+      }
+    ]
+  },
+  {
+    id: 'thread-eos-4',
+    subject: 'Alcade Exclusive - Autumn Fine Art Collection',
+    snippet: 'I am interested in securing a private viewing. Please send over the preview catalog...',
+    messageCount: 1,
+    hasAttachments: false,
+    lastMessageAt: 'Oct 7',
+    isRead: true,
+    isStarred: false,
+    priorityTier: 'NORMAL',
+    priorityScore: 0.6,
+    priorityReason: 'General inquiry',
+    labels: ['Art Acquisition'],
+    messages: [
+      {
+        id: 'msg-eos-4',
+        threadId: 'thread-eos-4',
+        sender: { name: 'alex.r@velisart.com', email: 'alex.r@velisart.com' },
+        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
+        subject: 'Alcade Exclusive - Autumn Fine Art Collection',
+        snippet: 'I am interested in securing a private viewing...',
+        bodyText: 'I am interested in securing a private viewing. Looking forward to your confirmation.',
+        sentAt: 'Oct 7',
+        receivedAt: 'Oct 7',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
+      }
+    ]
+  },
+  {
+    id: 'thread-eos-5',
+    subject: 'New Investment Portfolio',
+    snippet: 'The interested in securing catalog for the estate acquisitions and portfolio reallocation...',
+    messageCount: 1,
+    hasAttachments: false,
+    lastMessageAt: 'Oct 5',
+    isRead: true,
+    isStarred: false,
+    priorityTier: 'NORMAL',
+    priorityScore: 0.5,
+    priorityReason: 'Estate acquisition options',
+    labels: ['Investment Portfolio'],
+    messages: [
+      {
+        id: 'msg-eos-5',
+        threadId: 'thread-eos-5',
+        sender: { name: 'velisart.com', email: 'curator@velisart.com' },
+        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
+        subject: 'New Investment Portfolio',
+        snippet: 'The interested in securing catalog for the estate...',
+        bodyText: 'Estate acquisition options for Q4 available upon request.',
+        sentAt: 'Oct 5',
+        receivedAt: 'Oct 5',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
+      }
+    ]
+  },
+  {
     id: 'thread-1',
     subject: 'Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy',
     snippet: 'Sarah Jenkins: The final architecture review for the AWS to hybrid-cloud migration is scheduled. Please review the attached failover runbook before Thursday...',
@@ -442,7 +627,7 @@ const INITIAL_DEMO_NOTIFICATIONS: NotificationItem[] = [
 
 export const useMailStore = create<MailState>((set, get) => ({
   currentFolder: 'inbox',
-  selectedThreadId: 'thread-1',
+  selectedThreadId: 'thread-eos-1',
   threads: INITIAL_DEMO_THREADS,
   searchQuery: '',
   searchResults: [],

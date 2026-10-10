@@ -31,7 +31,7 @@ export const AuthModal: React.FC = () => {
 
         if (googleBtnRef.current) {
           window.google.accounts.id.renderButton(googleBtnRef.current, {
-            theme: 'filled_black',
+            theme: 'outline',
             size: 'large',
             text: 'continue_with',
             shape: 'rectangular',
@@ -51,11 +51,9 @@ export const AuthModal: React.FC = () => {
     if (window.google?.accounts?.id && googleClientId) {
       window.google.accounts.id.prompt();
     } else {
-      // In development or when VITE_GOOGLE_CLIENT_ID is not configured in environment,
-      // offer instantaneous demo sign-in or prompt for test account
       const demoEmail = window.prompt(
         'Google OAuth2 client ID not set. Enter a Google email to sign in via test OAuth flow:',
-        'alex.rivera@gmail.com'
+        'alex.rivera@velisart.com'
       );
       if (demoEmail && demoEmail.trim()) {
         setGoogleLoading(true);
@@ -80,41 +78,41 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-background-secondary border border-surface-border rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-[#FAF7F2] border border-[#DFD5C4] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
         {/* Modal Header */}
-        <div className="px-5 py-4 bg-surface border-b border-surface-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-primary-600 to-accent-ai flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-white" />
+        <div className="px-5 py-4 bg-[#EFE8DC] border-b border-[#DFD5C4] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#A85338] flex items-center justify-center shadow-xs">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">
-                {mode === 'signin' ? 'Sign in to NextMail' : 'Create NextMail Account'}
+              <h3 className="text-sm font-semibold text-[#2C241E] font-serif">
+                {mode === 'signin' ? 'Sign in to Eos Mail' : 'Create Eos Account'}
               </h3>
-              <p className="text-[10px] text-slate-400 font-mono">Google OAuth2 + Argon2id Security</p>
+              <p className="text-[10px] text-[#7D6F61] font-mono">Google OAuth2 + Argon2id Zero-Trust</p>
             </div>
           </div>
           <button
             onClick={() => setAuthModalOpen(false)}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-[#7D6F61] hover:text-[#2C241E] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex border-b border-surface-border bg-background">
+        <div className="flex border-b border-[#DFD5C4] bg-[#FAF7F0]">
           <button
             type="button"
             onClick={() => {
               setMode('signin');
               setError(null);
             }}
-            className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
+            className={`flex-1 py-2.5 text-xs font-serif font-medium transition-colors border-b-2 cursor-pointer ${
               mode === 'signin'
-                ? 'border-primary-500 text-white bg-surface/40'
-                : 'border-transparent text-slate-400 hover:text-white'
+                ? 'border-[#A85338] text-[#2C241E] bg-[#EFE8DC]/60'
+                : 'border-transparent text-[#7D6F61] hover:text-[#2C241E]'
             }`}
           >
             Sign In
@@ -125,10 +123,10 @@ export const AuthModal: React.FC = () => {
               setMode('signup');
               setError(null);
             }}
-            className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
+            className={`flex-1 py-2.5 text-xs font-serif font-medium transition-colors border-b-2 cursor-pointer ${
               mode === 'signup'
-                ? 'border-primary-500 text-white bg-surface/40'
-                : 'border-transparent text-slate-400 hover:text-white'
+                ? 'border-[#A85338] text-[#2C241E] bg-[#EFE8DC]/60'
+                : 'border-transparent text-[#7D6F61] hover:text-[#2C241E]'
             }`}
           >
             Register
@@ -137,8 +135,8 @@ export const AuthModal: React.FC = () => {
 
         {/* Error Alert */}
         {error && (
-          <div className="mx-5 mt-4 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center gap-2 text-xs text-rose-300">
-            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+          <div className="mx-5 mt-4 p-3 rounded-xl bg-[#F5E6DE] border border-[#E2BCB0] flex items-center gap-2 text-xs text-[#823924]">
+            <AlertCircle className="w-4 h-4 text-[#A85338] flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -150,10 +148,10 @@ export const AuthModal: React.FC = () => {
               type="button"
               onClick={handleGoogleSignInClick}
               disabled={isLoading || googleLoading}
-              className="w-full flex items-center justify-center gap-2.5 bg-surface hover:bg-surface-hover active:bg-surface border border-surface-border hover:border-slate-500/50 text-white font-medium text-xs py-2.5 px-4 rounded-lg shadow-sm transition-all disabled:opacity-50 group cursor-pointer"
+              className="w-full flex items-center justify-center gap-2.5 bg-[#FAF7F0] hover:bg-[#EFE8DC] active:bg-[#E4DACB] border border-[#DFD5C4] hover:border-[#A85338]/50 text-[#2C241E] font-medium text-xs py-2.5 px-4 rounded-xl shadow-xs transition-all disabled:opacity-50 group cursor-pointer"
             >
               {googleLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-primary-400" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#A85338]" />
               ) : (
                 <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                   <path
@@ -174,16 +172,17 @@ export const AuthModal: React.FC = () => {
                   />
                 </svg>
               )}
-              <span>{googleLoading ? 'Signing in with Google...' : 'Continue with Google'}</span>
+              <span className="font-serif font-medium">
+                {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
+              </span>
             </button>
-            {/* Optional rendered Google GIS container */}
             <div ref={googleBtnRef} className="hidden" />
           </div>
 
           {/* Divider */}
           <div className="relative flex items-center justify-center">
-            <div className="border-t border-surface-border w-full"></div>
-            <span className="bg-background-secondary px-3 text-[10px] text-slate-400 uppercase tracking-wider font-mono absolute">
+            <div className="border-t border-[#DFD5C4] w-full"></div>
+            <span className="bg-[#FAF7F2] px-3 text-[10px] text-[#7D6F61] uppercase tracking-wider font-mono absolute">
               or continue with email
             </span>
           </div>
@@ -192,40 +191,40 @@ export const AuthModal: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {mode === 'signup' && (
               <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">Full Name</label>
+                <label className="block text-[11px] font-medium text-[#5C5044] mb-1">Full Name</label>
                 <div className="relative flex items-center">
-                  <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+                  <User className="w-3.5 h-3.5 text-[#7D6F61] absolute left-3.5 pointer-events-none" />
                   <input
                     type="text"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Alex Rivera"
-                    className="w-full bg-background text-xs text-white placeholder-slate-400 pl-9 pr-3 py-2 rounded-lg border border-surface-border focus:outline-none focus:border-primary-500"
+                    className="w-full bg-[#FAF7F0] text-xs text-[#2C241E] placeholder-[#A39485] pl-10 pr-3 py-2 rounded-xl border border-[#DFD5C4] focus:outline-none focus:border-[#A85338]"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-[11px] font-medium text-slate-300 mb-1">Email Address</label>
+              <label className="block text-[11px] font-medium text-[#5C5044] mb-1">Email Address</label>
               <div className="relative flex items-center">
-                <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+                <Mail className="w-3.5 h-3.5 text-[#7D6F61] absolute left-3.5 pointer-events-none" />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@nextmail.local"
-                  className="w-full bg-background text-xs text-white placeholder-slate-400 pl-9 pr-3 py-2 rounded-lg border border-surface-border focus:outline-none focus:border-primary-500"
+                  placeholder="alex.r@velisart.com"
+                  className="w-full bg-[#FAF7F0] text-xs text-[#2C241E] placeholder-[#A39485] pl-10 pr-3 py-2 rounded-xl border border-[#DFD5C4] focus:outline-none focus:border-[#A85338]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-slate-300 mb-1">Password</label>
+              <label className="block text-[11px] font-medium text-[#5C5044] mb-1">Password</label>
               <div className="relative flex items-center">
-                <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+                <Lock className="w-3.5 h-3.5 text-[#7D6F61] absolute left-3.5 pointer-events-none" />
                 <input
                   type="password"
                   required
@@ -233,11 +232,11 @@ export const AuthModal: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full bg-background text-xs text-white placeholder-slate-400 pl-9 pr-3 py-2 rounded-lg border border-surface-border focus:outline-none focus:border-primary-500"
+                  className="w-full bg-[#FAF7F0] text-xs text-[#2C241E] placeholder-[#A39485] pl-10 pr-3 py-2 rounded-xl border border-[#DFD5C4] focus:outline-none focus:border-[#A85338]"
                 />
               </div>
               {mode === 'signup' && (
-                <p className="text-[10px] text-slate-400 mt-1 font-mono">Minimum 8 characters with letters & symbols</p>
+                <p className="text-[10px] text-[#7D6F61] mt-1 font-mono">Minimum 8 characters with letters & symbols</p>
               )}
             </div>
 
@@ -245,10 +244,10 @@ export const AuthModal: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading || googleLoading}
-                className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-500 active:bg-primary-700 disabled:opacity-50 text-white font-medium text-xs py-2.5 px-4 rounded-lg shadow-lg shadow-primary-500/20 transition-all cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 bg-[#A85338] hover:bg-[#8E3F27] active:bg-[#77331F] disabled:opacity-50 text-white font-medium text-xs py-2.5 px-4 rounded-xl shadow-xs transition-all cursor-pointer font-serif"
               >
                 {isLoading ? (
-                  <span>Authenticating with Argon2id...</span>
+                  <span>Authenticating...</span>
                 ) : mode === 'signin' ? (
                   <>
                     <ShieldCheck className="w-4 h-4" />
@@ -266,7 +265,7 @@ export const AuthModal: React.FC = () => {
         </div>
 
         {/* Footer info */}
-        <div className="px-5 py-3 bg-surface/50 border-t border-surface-border text-[11px] text-slate-400 text-center font-mono">
+        <div className="px-5 py-3 bg-[#EFE8DC] border-t border-[#DFD5C4] text-[11px] text-[#7D6F61] text-center font-mono">
           Google OAuth2 & Passkey ready • Multi-device session revocation
         </div>
       </div>
