@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { MailboxFolder, EmailThread, EmailMessage } from '../types/mail';
+import { EmailThread, MailboxFolder } from '../types/mail';
 import { apiClient } from '../services/apiClient';
 import { webSocketService } from '../services/webSocketService';
 
-interface ThreadApiResponse {
+export interface ThreadApiResponse {
   id: string;
   subject: string;
   snippet: string;
@@ -18,6 +18,7 @@ interface ThreadApiResponse {
   priorityTier: 'URGENT' | 'IMPORTANT' | 'NORMAL' | 'LOW';
   priorityScore: number;
   priorityReason: string;
+  labels?: string[];
 }
 
 export interface AttachmentApiResponse {
@@ -93,7 +94,6 @@ interface ThreadDetailApiResponse extends ThreadApiResponse {
   messages: MessageApiResponse[];
 }
 
-
 interface PageResponse<T> {
   content: T[];
   totalElements: number;
@@ -118,16 +118,6 @@ export interface SearchResultDTO {
   isControlled: boolean;
   receivedAt: string;
   score: number;
-}
-
-interface SearchPageResponse {
-  content: SearchResultDTO[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  hasNext: boolean;
-  executedByEngine: string;
 }
 
 export interface AiActionItem {
@@ -169,7 +159,7 @@ export interface FollowUpReminderDTO {
   condition: FollowUpCondition;
   status: FollowUpStatus;
   note?: string;
-  originalLastMessageAt: string;
+  originalLastMessageAt?: string;
   triggeredAt?: string;
   resolvedAt?: string;
   createdAt: string;
@@ -250,6 +240,7 @@ interface MailState {
   markAsRead: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   trashThread: (threadId: string) => Promise<void>;
+  markAsSpam: (threadId: string, isSpam: boolean) => Promise<void>;
 
   revokeEnvelope: (messageId: string, reason?: string) => Promise<boolean>;
   fetchEnvelopeAuditLogs: (messageId: string) => Promise<EnvelopeAuditLogDTO[]>;
@@ -262,254 +253,56 @@ interface MailState {
   dismissFollowUp: (id: string) => Promise<boolean>;
 }
 
-
-
-// Initial demonstration data for high-fidelity SaaS presentation
+// Enterprise Contact Center & Mail Intelligence Mock Fixtures
 const INITIAL_DEMO_THREADS: EmailThread[] = [
   {
-    id: 'thread-eos-1',
-    subject: 'RE: Alcade Exclusive - Autumn Fine Art Collection',
-    snippet: 'I have reviewed the preliminary catalog for the Autumn collection. The curation is exceptional, particularly the emphasis on emerging abstract expressionists...',
-    messageCount: 1,
-    hasAttachments: true,
-    lastMessageAt: '10:42 AM',
-    isRead: false,
-    isStarred: true,
-    priorityTier: 'URGENT',
-    priorityScore: 0.98,
-    priorityReason: 'High-value private viewing inquiry from President of Alcade Mall.',
-    labels: ['Art Acquisition', 'Investment Portfolio'],
-    aiSummary: {
-      overview: 'Alex R. Svantor reviewed the Autumn collection catalog and requested a private viewing for abstract expressionist piece "Luminous Tides".',
-      decisions: [
-        'Curatorial emphasis on emerging abstract expressionists approved.',
-        'Private viewing scheduled for discussion.'
-      ],
-      actionItems: [
-        'Confirm availability for private viewing call with Alex Svantor'
-      ],
-      unresolvedQuestions: [
-        'Preferred dates for private viewing at Alcade Gallery?'
-      ],
-      deadlines: ['Autumn Collection Exclusive - Friday']
-    },
-    messages: [
-      {
-        id: 'msg-eos-1',
-        threadId: 'thread-eos-1',
-        sender: { name: 'alex.r@velisart.com', email: 'alex.r@velisart.com' },
-        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
-        subject: 'RE: Alcade Exclusive - Autumn Fine Art Collection',
-        snippet: 'I have reviewed the preliminary catalog for the Autumn collection...',
-        bodyText: `Dear Alex,
-
-I have reviewed the preliminary catalog for the Autumn collection. The curation is exceptional, particularly the emphasis on emerging abstract expressionists.
-
-I am interested in securing a private viewing. Please let me know your availability for a call.
-
-Sincerely,
-Alex.r Svantor
-President Iniadal - Alcade Mall
-Signature Block`,
-        sentAt: '10:42 AM',
-        receivedAt: '10:42 AM',
-        isRead: false,
-        isStarred: true,
-        attachments: [
-          { id: 'att-art-1', filename: 'Proposed_Piece_3_Luminous_Tides.jpg', contentType: 'image/jpeg', sizeBytes: 3420000 }
-        ],
-        securityFlags: {
-          isPhishingRisk: false,
-          spfValid: true,
-          dkimValid: true,
-          suspiciousLinksCount: 0
-        }
-      }
-    ]
-  },
-  {
-    id: 'thread-eos-2',
-    subject: 'RE: Alcade Exclusive - Autumn Fine Art Crt',
-    snippet: 'I have reviewed the preliminary catalog for the seasonal files on emerging expressionists...',
+    id: 'thread-urgent-1',
+    subject: '[URGENT P0] Production Database Failover & Replication Lag Spike',
+    snippet: 'URGENT: Primary PostgreSQL cluster in us-east-1 is experiencing 550ms replication lag. Immediate authorization needed to trigger replica failover before 2 PM peak traffic...',
     messageCount: 2,
     hasAttachments: false,
-    lastMessageAt: 'Yesterday',
-    isRead: true,
-    isStarred: false,
-    priorityTier: 'NORMAL',
-    priorityScore: 0.6,
-    priorityReason: 'Standard follow-up inquiry',
-    labels: ['Art Acquisition'],
-    messages: [
-      {
-        id: 'msg-eos-2',
-        threadId: 'thread-eos-2',
-        sender: { name: 'alex.r@velisart.com', email: 'alex.r@velisart.com' },
-        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
-        subject: 'RE: Alcade Exclusive - Autumn Fine Art Crt',
-        snippet: 'I have reviewed the preliminary catalog for the seasonal files...',
-        bodyText: 'I have reviewed the preliminary catalog for the seasonal files on emerging expressionists. Let us discuss the terms next week.',
-        sentAt: 'Yesterday',
-        receivedAt: 'Yesterday',
-        isRead: true,
-        isStarred: false,
-        attachments: [],
-        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
-      }
-    ]
-  },
-  {
-    id: 'thread-eos-3',
-    subject: 'High-end Account Portfolio',
-    snippet: 'I have reviewed the preliminary catalog for the essential files on emerging exploration...',
-    messageCount: 1,
-    hasAttachments: true,
-    lastMessageAt: 'Oct 8',
-    isRead: true,
-    isStarred: false,
-    priorityTier: 'IMPORTANT',
-    priorityScore: 0.85,
-    priorityReason: 'Quarterly portfolio report',
-    labels: ['Investment Portfolio'],
-    messages: [
-      {
-        id: 'msg-eos-3',
-        threadId: 'thread-eos-3',
-        sender: { name: 'alcadvisart.com', email: 'advisors@alcadvisart.com' },
-        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
-        subject: 'High-end Account Portfolio',
-        snippet: 'I have reviewed the preliminary catalog...',
-        bodyText: 'Quarterly portfolio report attached for your private review.',
-        sentAt: 'Oct 8',
-        receivedAt: 'Oct 8',
-        isRead: true,
-        isStarred: false,
-        attachments: [],
-        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
-      }
-    ]
-  },
-  {
-    id: 'thread-eos-4',
-    subject: 'Alcade Exclusive - Autumn Fine Art Collection',
-    snippet: 'I am interested in securing a private viewing. Please send over the preview catalog...',
-    messageCount: 1,
-    hasAttachments: false,
-    lastMessageAt: 'Oct 7',
-    isRead: true,
-    isStarred: false,
-    priorityTier: 'NORMAL',
-    priorityScore: 0.6,
-    priorityReason: 'General inquiry',
-    labels: ['Art Acquisition'],
-    messages: [
-      {
-        id: 'msg-eos-4',
-        threadId: 'thread-eos-4',
-        sender: { name: 'alex.r@velisart.com', email: 'alex.r@velisart.com' },
-        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
-        subject: 'Alcade Exclusive - Autumn Fine Art Collection',
-        snippet: 'I am interested in securing a private viewing...',
-        bodyText: 'I am interested in securing a private viewing. Looking forward to your confirmation.',
-        sentAt: 'Oct 7',
-        receivedAt: 'Oct 7',
-        isRead: true,
-        isStarred: false,
-        attachments: [],
-        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
-      }
-    ]
-  },
-  {
-    id: 'thread-eos-5',
-    subject: 'New Investment Portfolio',
-    snippet: 'The interested in securing catalog for the estate acquisitions and portfolio reallocation...',
-    messageCount: 1,
-    hasAttachments: false,
-    lastMessageAt: 'Oct 5',
-    isRead: true,
-    isStarred: false,
-    priorityTier: 'NORMAL',
-    priorityScore: 0.5,
-    priorityReason: 'Estate acquisition options',
-    labels: ['Investment Portfolio'],
-    messages: [
-      {
-        id: 'msg-eos-5',
-        threadId: 'thread-eos-5',
-        sender: { name: 'velisart.com', email: 'curator@velisart.com' },
-        recipients: [{ name: 'Alex Rivera', email: 'alex.r@velisart.com' }],
-        subject: 'New Investment Portfolio',
-        snippet: 'The interested in securing catalog for the estate...',
-        bodyText: 'Estate acquisition options for Q4 available upon request.',
-        sentAt: 'Oct 5',
-        receivedAt: 'Oct 5',
-        isRead: true,
-        isStarred: false,
-        attachments: [],
-        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
-      }
-    ]
-  },
-  {
-    id: 'thread-1',
-    subject: 'Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy',
-    snippet: 'Sarah Jenkins: The final architecture review for the AWS to hybrid-cloud migration is scheduled. Please review the attached failover runbook before Thursday...',
-    messageCount: 4,
-    hasAttachments: true,
     lastMessageAt: '10:42 AM',
     isRead: false,
     isStarred: true,
+    isSpam: false,
     priorityTier: 'URGENT',
-    priorityScore: 0.94,
-    priorityReason: 'Identified upcoming deadline (Thursday) and architectural sign-off requested from Engineering Leadership.',
-    labels: ['Engineering', 'Architecture', 'Q4'],
+    priorityScore: 0.98,
+    priorityReason: 'P0 Database failover authorization required before 2:00 PM peak traffic.',
+    labels: ['Operations', 'Urgent'],
     aiSummary: {
-      overview: 'Thread focuses on approving the final zero-downtime database failover procedures for the upcoming Q4 infrastructure migration.',
+      overview: 'Critical replication lag (550ms) detected on primary PostgreSQL cluster in us-east-1. Lead DevOps Jane Cooper requests immediate executive sign-off to initiate replica promotion before the 2:00 PM peak customer traffic window.',
       decisions: [
-        'PostgreSQL replication will operate in semi-synchronous mode with Patroni.',
-        'DNS TTL reduced from 3600s to 60s ahead of the cutover window.'
+        'Standby replica in us-east-2 verified and healthy.',
+        'Downtime window estimated at under 45 seconds during DNS switch.'
       ],
       actionItems: [
-        'Review failover runbook v2.4 before Thursday 17:00 EST.',
-        'Confirm standby replica provisioning in us-east-2.'
+        'Authorize database replica promotion before 2:00 PM EOD',
+        'Verify read-replica connection pool drain'
       ],
       unresolvedQuestions: [
-        'Do we need secondary S3 bucket replication for compliance logs?'
+        'Have background batch ETL pipelines been paused?',
+        'Has status page notification been drafted?'
       ],
-      deadlines: ['Thursday, Oct 8 at 5:00 PM EST']
+      deadlines: ['Failover Window - Today 2:00 PM']
     },
     messages: [
       {
-        id: 'msg-1-1',
-        threadId: 'thread-1',
-        sender: { name: 'Sarah Jenkins (Principal DevOps)', email: 'sarah.j@acme-systems.cloud' },
-        recipients: [{ name: 'Alex Rivera (Staff Architect)', email: 'alex.r@nextmail.local' }],
-        subject: 'Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy',
-        snippet: 'The final architecture review for the AWS to hybrid-cloud migration is scheduled...',
-        bodyText: `Alex,\n\nThe final architecture review for the AWS to hybrid-cloud migration is scheduled for Thursday. We've updated the runbook based on last week's chaos engineering results.\n\nPlease review the database failover section (pages 8-14) and verify that our virtual thread connection pooling won't overwhelm the PostgreSQL standby during failover.\n\nBest,\nSarah`,
-        sentAt: 'Yesterday, 4:15 PM',
-        receivedAt: 'Yesterday, 4:15 PM',
-        isRead: true,
-        isStarred: true,
-        attachments: [
-          { id: 'att-1', filename: 'failover_runbook_v2.4.pdf', contentType: 'application/pdf', sizeBytes: 2450000 }
-        ],
-        securityFlags: {
-          isPhishingRisk: false,
-          spfValid: true,
-          dkimValid: true,
-          suspiciousLinksCount: 0
-        }
-      },
-      {
-        id: 'msg-1-2',
-        threadId: 'thread-1',
-        sender: { name: 'Sarah Jenkins (Principal DevOps)', email: 'sarah.j@acme-systems.cloud' },
-        recipients: [{ name: 'Alex Rivera (Staff Architect)', email: 'alex.r@nextmail.local' }],
-        subject: 'Re: Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy',
-        snippet: 'Quick update: Standby replica provisioned in us-east-2. Need your sign-off by Thursday 5pm.',
-        bodyText: `Quick update:\n\nThe standby replica is now provisioned in us-east-2. We need your sign-off before Thursday 5:00 PM EST so the change management board can authorize the window.\n\nLet me know if you need any adjustments to the metrics dashboards.`,
+        id: 'msg-u1-1',
+        threadId: 'thread-urgent-1',
+        sender: { name: 'Jane Cooper', email: 'jane.cooper@infrastructure.cloud' },
+        recipients: [{ name: 'Contact Center Operations', email: 'ops@nextmail.local' }],
+        subject: '[URGENT P0] Production Database Failover & Replication Lag Spike',
+        snippet: 'URGENT: Primary PostgreSQL cluster in us-east-1 is experiencing 550ms replication lag...',
+        bodyText: `URGENT INCIDENT ALERT:
+
+Primary PostgreSQL cluster in us-east-1 is experiencing 550ms replication lag due to a sudden volume spike. The standby read-replica in us-east-2 is completely in sync with zero data divergence.
+
+We need immediate operational sign-off to initiate the automated Patroni failover before peak customer traffic begins at 2:00 PM EST.
+
+Estimated disruption is under 45 seconds. Please confirm authorization immediately.
+
+Jane Cooper
+Lead Infrastructure & SRE`,
         sentAt: '10:42 AM',
         receivedAt: '10:42 AM',
         isRead: false,
@@ -525,27 +318,34 @@ Signature Block`,
     ]
   },
   {
-    id: 'thread-2',
-    subject: 'Security Alert: Suspicious login attempt flagged via SSO Gateway',
-    snippet: 'NextMail SecOps: An anomalous login was detected from IP 185.220.101.5 (Tor Exit Node). Automated link quarantine engaged...',
+    id: 'thread-urgent-2',
+    subject: '[URGENT] Wildcard SSL Certificate Expiring in 24 Hours for api.nextmail.local',
+    snippet: 'Automated Certificate Monitor: Wildcard SSL certificate for *.nextmail.local expires in 23 hours. Automated Let\'s Encrypt challenge failed on DNS record...',
     messageCount: 1,
     hasAttachments: false,
     lastMessageAt: '09:15 AM',
     isRead: false,
     isStarred: false,
-    priorityTier: 'IMPORTANT',
-    priorityScore: 0.88,
-    priorityReason: 'SecOps automated alert with detected threat indicator.',
-    labels: ['Security', 'Alert'],
+    isSpam: false,
+    priorityTier: 'URGENT',
+    priorityScore: 0.96,
+    priorityReason: 'Imminent SSL outage; API traffic will be blocked by browsers if unresolved within 24h.',
+    labels: ['DevOps', 'Urgent'],
     messages: [
       {
-        id: 'msg-2-1',
-        threadId: 'thread-2',
-        sender: { name: 'SecOps Security Daemon', email: 'security-alerts@nextmail.local' },
-        recipients: [{ name: 'Alex Rivera', email: 'alex.r@nextmail.local' }],
-        subject: 'Security Alert: Suspicious login attempt flagged via SSO Gateway',
-        snippet: 'An anomalous login was detected from IP 185.220.101.5...',
-        bodyText: `Attention:\n\nOur real-time anomaly detection caught a failed login challenge from a known proxy/Tor exit node targeting your administrative alias.\n\nAction Taken: Two-Factor challenge was enforced and session creation was blocked. No credentials were breached.\n\nIf this was not you, please audit your active sessions in Settings > Security.`,
+        id: 'msg-u2-1',
+        threadId: 'thread-urgent-2',
+        sender: { name: 'DevOps Sentry', email: 'alerts@pagerduty-cloud.net' },
+        recipients: [{ name: 'SecOps Team', email: 'secops@nextmail.local' }],
+        subject: '[URGENT] Wildcard SSL Certificate Expiring in 24 Hours for api.nextmail.local',
+        snippet: 'Automated Certificate Monitor: Wildcard SSL certificate expires in 23 hours...',
+        bodyText: `Automated Sentry Warning:
+
+The wildcard SSL/TLS certificate for *.nextmail.local and internal microservices will expire in exactly 23 hours and 40 minutes.
+
+The automated ACME HTTP-01 DNS challenge failed due to a routing timeout with Cloudflare edge DNS. Manual API token regeneration or DNS TXT validation is required immediately to prevent browser SSL warnings.
+
+Action Required: Run the certificate reissuance pipeline or update Cloudflare API credentials.`,
         sentAt: '09:15 AM',
         receivedAt: '09:15 AM',
         isRead: false,
@@ -561,73 +361,464 @@ Signature Block`,
     ]
   },
   {
-    id: 'thread-3',
-    subject: '[Controlled Message] Confidential: Series B Term Sheet & Governance Draft',
-    snippet: 'David Zhang (Venture Partner): Access granted under NextMail Controlled Envelope. This message is configured to expire in 48 hours...',
-    messageCount: 1,
+    id: 'thread-important-1',
+    subject: 'Enterprise Master Services Agreement (MSA) Q4 Renewal Terms',
+    snippet: 'Following up on our contract renegotiation. Attached are the revised indemnity clauses and SLA commitments for your executive sign-off before Friday...',
+    messageCount: 2,
     hasAttachments: true,
     lastMessageAt: 'Yesterday',
     isRead: true,
-    isStarred: true,
+    isStarred: false,
+    isSpam: false,
     priorityTier: 'IMPORTANT',
-    priorityScore: 0.82,
-    priorityReason: 'Confidential corporate governance document with 48h expiration timer.',
-    labels: ['Confidential', 'Finance'],
+    priorityScore: 0.88,
+    priorityReason: 'Executive contract sign-off requested with high-value SLA amendments.',
+    labels: ['Legal', 'Contracts'],
     messages: [
       {
-        id: 'msg-3-1',
-        threadId: 'thread-3',
-        sender: { name: 'David Zhang', email: 'david.zhang@apex-ventures.io' },
-        recipients: [{ name: 'Alex Rivera', email: 'alex.r@nextmail.local' }],
-        subject: '[Controlled Message] Confidential: Series B Term Sheet & Governance Draft',
-        snippet: 'This message is protected by NextMail Envelope Encryption...',
-        bodyText: `Alex,\n\nHere is the revised draft of the Series B term sheet with the updated valuation cap and board seat allocations.\n\n[Controlled Envelope Note]:\nThis document is protected with NextMail cryptographic envelope policies. Forwarding is disabled, download is restricted to verified hardware, and the link automatically revokes on Sunday at 23:59 UTC.`,
-        sentAt: 'Yesterday, 2:30 PM',
-        receivedAt: 'Yesterday, 2:30 PM',
+        id: 'msg-i1-1',
+        threadId: 'thread-important-1',
+        sender: { name: 'Ralph Edwards', email: 'ralph.e@vance-legal.com' },
+        recipients: [{ name: 'Executive Team', email: 'admin@nextmail.local' }],
+        subject: 'Enterprise Master Services Agreement (MSA) Q4 Renewal Terms',
+        snippet: 'Following up on our contract renegotiation...',
+        bodyText: `Dear Executive Team,
+
+I have finalized the review of the Q4 Master Services Agreement with outside counsel. We have successfully negotiated a 99.99% SLA uptime tier and updated the data retention indemnity clause under Section 4.2.
+
+Attached is the clean execution copy for your digital signature. Please confirm approval before Friday 5:00 PM EST so we can counter-sign with the enterprise customer.
+
+Best regards,
+Ralph Edwards
+General Counsel, Vance Legal Partners`,
+        sentAt: 'Yesterday',
+        receivedAt: 'Yesterday',
+        isRead: true,
+        isStarred: false,
+        attachments: [
+          { id: 'att-msa-1', filename: 'Enterprise_MSA_Execution_v4.pdf', contentType: 'application/pdf', sizeBytes: 1840000 }
+        ],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
+      }
+    ]
+  },
+  {
+    id: 'thread-important-2',
+    subject: 'Series B Investment Syndicate Allocation & Board Observer Charter',
+    snippet: 'Our investment committee has formally approved the $15M syndicate co-lead allocation. Let us schedule a partner discussion this Thursday to review the term sheet...',
+    messageCount: 1,
+    hasAttachments: true,
+    lastMessageAt: 'Oct 8',
+    isRead: true,
+    isStarred: true,
+    isSpam: false,
+    priorityTier: 'IMPORTANT',
+    priorityScore: 0.92,
+    priorityReason: 'Series B term sheet allocation of $15M and partner governance meeting scheduling.',
+    labels: ['Finance', 'Investors'],
+    messages: [
+      {
+        id: 'msg-i2-1',
+        threadId: 'thread-important-2',
+        sender: { name: 'Esther Howard', email: 'esther.h@venture-partners.io' },
+        recipients: [{ name: 'Founders', email: 'founders@nextmail.local' }],
+        subject: 'Series B Investment Syndicate Allocation & Board Observer Charter',
+        snippet: 'Our investment committee has formally approved the $15M syndicate co-lead allocation...',
+        bodyText: `Dear Team,
+
+Excited to share that our Investment Committee has unanimously voted to approve the $15,000,000 co-lead check for your Series B round.
+
+We would like to convene a brief partner synchronization this Thursday at 2:30 PM to align on board observer representation and governance expectations.
+
+Attached is the preliminary term sheet summary. Congratulations on the tremendous metrics!
+
+Warmly,
+Esther Howard
+Managing Partner, Horizon Ventures`,
+        sentAt: 'Oct 8',
+        receivedAt: 'Oct 8',
         isRead: true,
         isStarred: true,
-        isControlled: true,
-        expiresAt: '2026-10-05T23:59:00Z',
         attachments: [
-          { id: 'att-2', filename: 'Series_B_Term_Sheet_Confidential.pdf', contentType: 'application/pdf', sizeBytes: 890000 }
+          { id: 'att-term-1', filename: 'Series_B_Term_Sheet_Horizon.pdf', contentType: 'application/pdf', sizeBytes: 2450000 }
         ],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
+      }
+    ]
+  },
+  {
+    id: 'thread-important-3',
+    subject: 'Acme Corp Enterprise Pilot Deployment & Okta SSO Verification',
+    snippet: 'We have completed our Okta SAML 2.0 configuration on our staging tenant. Please verify the assertion consumer service URL and provision our initial 50 seats...',
+    messageCount: 1,
+    hasAttachments: false,
+    lastMessageAt: 'Oct 7',
+    isRead: true,
+    isStarred: false,
+    isSpam: false,
+    priorityTier: 'IMPORTANT',
+    priorityScore: 0.84,
+    priorityReason: 'Enterprise pilot SSO deployment and user provisioning milestone.',
+    labels: ['Customers', 'Onboarding'],
+    messages: [
+      {
+        id: 'msg-i3-1',
+        threadId: 'thread-important-3',
+        sender: { name: 'Cameron Williamson', email: 'cameron.w@acme-corp.com' },
+        recipients: [{ name: 'Integrations', email: 'integrations@nextmail.local' }],
+        subject: 'Acme Corp Enterprise Pilot Deployment & Okta SSO Verification',
+        snippet: 'We have completed our Okta SAML 2.0 configuration on our staging tenant...',
+        bodyText: `Hi Integration Team,
+
+Our IT security team has finalized the SAML 2.0 SSO app profile in Okta for Acme Corp.
+
+Could you please verify our Assertion Consumer Service (ACS) endpoint and initialize the JIT provisioning for our 50 pilot agents?
+
+Looking forward to testing the zero-trust envelopes during our live pilot.
+
+Cameron Williamson
+VP of Digital Workplace, Acme Corp`,
+        sentAt: 'Oct 7',
+        receivedAt: 'Oct 7',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
+      }
+    ]
+  },
+  {
+    id: 'thread-spam-1',
+    subject: '⚠️ CRITICAL: Unauthorized Access Detected on Your Account - Reset Password Now',
+    snippet: 'Dear Customer, We detected an unauthorized login attempt from Moscow, Russia. Your balance of $28,450 has been temporarily frozen. Verify immediately...',
+    messageCount: 1,
+    hasAttachments: false,
+    lastMessageAt: '08:20 AM',
+    isRead: false,
+    isStarred: false,
+    isSpam: true,
+    priorityTier: 'LOW',
+    priorityScore: 0.05,
+    priorityReason: 'Spam / Phishing: Spoofed domain mismatch, homograph character spoofing, credential phishing URL.',
+    labels: ['Spam', 'Quarantine'],
+    messages: [
+      {
+        id: 'msg-s1-1',
+        threadId: 'thread-spam-1',
+        sender: { name: 'Bank Security Desk', email: 'security-alert@paypaI-secure-login.net' },
+        recipients: [{ name: 'Target Account', email: 'user@nextmail.local' }],
+        subject: '⚠️ CRITICAL: Unauthorized Access Detected on Your Account - Reset Password Now',
+        snippet: 'Dear Customer, We detected an unauthorized login attempt from Moscow, Russia...',
+        bodyText: `SECURITY WARNING NOTICE:
+
+We have detected suspicious unauthorized sign-in attempts from IP 185.220.101.4 (Moscow, Russian Federation) trying to access your corporate funds.
+
+Your current active balance of $28,450.00 USD has been frozen to prevent theft.
+
+To restore access immediately, you must verify your identity within 2 hours:
+>> CLICK HERE TO VERIFY IDENTITY: http://192.168.1.104/credential-verify-login.php?user=target
+
+Failure to verify will result in permanent account forfeiture.
+
+Global Security Desk`,
+        sentAt: '08:20 AM',
+        receivedAt: '08:20 AM',
+        isRead: false,
+        isStarred: false,
+        attachments: [],
         securityFlags: {
-          isPhishingRisk: false,
-          spfValid: true,
-          dkimValid: true,
-          suspiciousLinksCount: 0
+          isPhishingRisk: true,
+          spfValid: false,
+          dkimValid: false,
+          suspiciousLinksCount: 4,
+          riskReason: "Domain spoofing detected ('paypaI-secure-login.net'), failed SPF/DKIM authentication, malicious credential harvesting link."
         }
+      }
+    ]
+  },
+  {
+    id: 'thread-spam-2',
+    subject: 'Guaranteed 400% Weekly Return - Automated Crypto Arbitrage Fund Allocation',
+    snippet: 'Confidential Investment Notice: Deposit 2.5 ETH or $5,000 USDT to automated vault address 0x889... and receive guaranteed daily payouts. Limited slots remaining...',
+    messageCount: 1,
+    hasAttachments: false,
+    lastMessageAt: 'Oct 6',
+    isRead: true,
+    isStarred: false,
+    isSpam: true,
+    priorityTier: 'LOW',
+    priorityScore: 0.02,
+    priorityReason: 'Spam / Fraud: Unsolicited cryptocurrency wealth transfer solicitation from untrusted TLD.',
+    labels: ['Spam'],
+    messages: [
+      {
+        id: 'msg-s2-1',
+        threadId: 'thread-spam-2',
+        sender: { name: 'Prof. Robert Fox', email: 'wealth-allocations@crypto-vault-arbitrage.xyz' },
+        recipients: [{ name: 'Recipient', email: 'user@nextmail.local' }],
+        subject: 'Guaranteed 400% Weekly Return - Automated Crypto Arbitrage Fund Allocation',
+        snippet: 'Deposit 2.5 ETH or $5,000 USDT to automated vault address 0x889...',
+        bodyText: `Exclusive Wealth Invitation:
+
+I am managing an algorithmic multi-exchange Flash Loan arbitrage pool delivering 400% weekly guaranteed profit without market exposure.
+
+Deposit 2.5 ETH or 5,000 USDT to smart contract pool 0x889A...c21 and payouts start every 24 hours directly to your wallet.
+
+Only 3 investor allocations remaining before the pool closes permanently.`,
+        sentAt: 'Oct 6',
+        receivedAt: 'Oct 6',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: {
+          isPhishingRisk: true,
+          spfValid: false,
+          dkimValid: false,
+          suspiciousLinksCount: 2,
+          riskReason: "Blacklisted origin IP, high-confidence financial scam pattern, failed SPF."
+        }
+      }
+    ]
+  },
+  {
+    id: 'thread-normal-1',
+    subject: 'Sprint 42 Retrospective Notes & Contact Center Metrics Review',
+    snippet: 'Team, the Sprint 42 retrospective notes and contact center resolution benchmarks are published on Confluence. Average first-response time dropped to 1.8 minutes...',
+    messageCount: 1,
+    hasAttachments: false,
+    lastMessageAt: 'Oct 5',
+    isRead: true,
+    isStarred: false,
+    isSpam: false,
+    priorityTier: 'NORMAL',
+    priorityScore: 0.55,
+    priorityReason: 'Routine operational retrospective report within standard SLA.',
+    labels: ['Operations', 'Support'],
+    messages: [
+      {
+        id: 'msg-n1-1',
+        threadId: 'thread-normal-1',
+        sender: { name: 'Wade Warren', email: 'wade.w@support-ops.com' },
+        recipients: [{ name: 'Support Team', email: 'support@nextmail.local' }],
+        subject: 'Sprint 42 Retrospective Notes & Contact Center Metrics Review',
+        snippet: 'The Sprint 42 retrospective notes are published...',
+        bodyText: `Hey everyone,
+
+Sprint 42 retrospective notes are now live on Confluence.
+
+Key Highlights:
+- Average First Response Time: 1.8 minutes (down 24%)
+- AI Auto-Categorization Accuracy: 94.2%
+- CSAT Score: 4.85 / 5.0
+
+Great effort from all shifts. Let's keep this momentum going into Sprint 43 planning on Monday.
+
+Wade Warren
+Contact Center Operations Manager`,
+        sentAt: 'Oct 5',
+        receivedAt: 'Oct 5',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
+      }
+    ]
+  },
+  {
+    id: 'thread-normal-2',
+    subject: 'Design System 2.0 Iconography & Component Tokens Update',
+    snippet: 'Hi team! We just published the updated Figma token library for Design System 2.0 with the new mojo cx emerald palette. Let us know your feedback during sprint planning...',
+    messageCount: 1,
+    hasAttachments: false,
+    lastMessageAt: 'Oct 4',
+    isRead: true,
+    isStarred: false,
+    isSpam: false,
+    priorityTier: 'NORMAL',
+    priorityScore: 0.50,
+    priorityReason: 'Routine design system update within standard response window.',
+    labels: ['Design', 'Product'],
+    messages: [
+      {
+        id: 'msg-n2-1',
+        threadId: 'thread-normal-2',
+        sender: { name: 'Jenny Wilson', email: 'jenny.w@design-studio.co' },
+        recipients: [{ name: 'Frontend Guild', email: 'frontend@nextmail.local' }],
+        subject: 'Design System 2.0 Iconography & Component Tokens Update',
+        snippet: 'We just published the updated Figma token library...',
+        bodyText: `Hello Designers & Engineers,
+
+Design System 2.0 component library is finalized!
+
+Includes:
+- High-contrast emerald accents (#00D084)
+- Crisp dark sidebar components (#0E1318)
+- Standardized badge tokens for Urgent, Important, Normal, and Spam
+- Accessibility verified against WCAG AAA contrast guidelines
+
+Please import the latest npm package @design/mojo-tokens@2.1.0 in your next PR.
+
+Jenny Wilson
+Lead Product Designer`,
+        sentAt: 'Oct 4',
+        receivedAt: 'Oct 4',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 }
       }
     ]
   }
 ];
 
+const INITIAL_DEMO_SUMMARIES: Record<string, AiSummaryResponse> = {
+  'thread-urgent-1': {
+    threadId: 'thread-urgent-1',
+    overview: 'Critical replication lag (550ms) detected on primary PostgreSQL cluster in us-east-1. Lead DevOps Jane Cooper requests immediate executive sign-off to initiate replica promotion before the 2:00 PM peak customer traffic window.',
+    keyDecisions: [
+      'Standby replica in us-east-2 verified and healthy with zero data divergence.',
+      'Cutover disruption estimated at under 45 seconds during DNS switch.'
+    ],
+    actionItems: [
+      { task: 'Authorize database replica promotion before 2:00 PM EOD', assignee: 'Operations Lead', dueSuggestion: 'Immediate' },
+      { task: 'Verify read-replica connection pool drain', assignee: 'Jane Cooper', dueSuggestion: '1:45 PM' }
+    ],
+    unresolvedQuestions: [
+      'Have background batch ETL pipelines been paused?',
+      'Has status page maintenance notification been drafted?'
+    ],
+    priorityTier: 'URGENT',
+    priorityScore: 0.98,
+    priorityReason: 'P0 Database failover authorization required before 2:00 PM peak traffic.',
+    suggestedAction: 'Authorize failover immediately to prevent transaction queue backlog.',
+    modelUsed: 'gemini-1.5-flash',
+    generatedAt: new Date().toISOString()
+  },
+  'thread-urgent-2': {
+    threadId: 'thread-urgent-2',
+    overview: 'Automated certificate authority monitor detected that the wildcard SSL/TLS certificate for *.nextmail.local expires in under 24 hours. Automated HTTP-01 challenge failed on Cloudflare DNS timeout.',
+    keyDecisions: [
+      'Manual DNS TXT challenge authorization required.',
+      'Emergency maintenance pipeline queued.'
+    ],
+    actionItems: [
+      { task: 'Reissue wildcard SSL cert via manual DNS challenge', assignee: 'SecOps Team', dueSuggestion: 'Today, within 4h' }
+    ],
+    unresolvedQuestions: [
+      'Is Cloudflare API token expired or restricted?'
+    ],
+    priorityTier: 'URGENT',
+    priorityScore: 0.96,
+    priorityReason: 'Imminent SSL outage; API traffic will be blocked by browsers if unresolved within 24h.',
+    suggestedAction: 'Execute SSL renewal pipeline immediately.',
+    modelUsed: 'gemini-1.5-flash',
+    generatedAt: new Date().toISOString()
+  },
+  'thread-important-1': {
+    threadId: 'thread-important-1',
+    overview: 'General Counsel Ralph Edwards has finalized the Q4 Master Services Agreement (MSA) with outside counsel, securing 99.99% SLA terms and capped 7-year data retention indemnity.',
+    keyDecisions: [
+      'Agreed to 99.99% uptime commitment with penalty credits.',
+      'Section 4.2 data retention indemnity approved by legal.'
+    ],
+    actionItems: [
+      { task: 'Review redlined indemnity section 4.2', assignee: 'Executive Team', dueSuggestion: 'Friday, 5:00 PM' },
+      { task: 'Obtain CFO signature on pricing addendum', assignee: 'Ralph Edwards', dueSuggestion: 'Monday' }
+    ],
+    unresolvedQuestions: [
+      'Does the revised SLA require multi-region active-active deployment?'
+    ],
+    priorityTier: 'IMPORTANT',
+    priorityScore: 0.88,
+    priorityReason: 'Executive contract sign-off requested with high-value SLA amendments.',
+    suggestedAction: 'Review section 4.2 and approve signature execution.',
+    modelUsed: 'gemini-1.5-flash',
+    generatedAt: new Date().toISOString()
+  },
+  'thread-spam-1': {
+    threadId: 'thread-spam-1',
+    overview: 'SECURITY THREAT ISOLATED: High-confidence phishing attack spoofing payment brand using homograph character domain ("paypaI-secure-login.net"). Automated quarantine enforced.',
+    keyDecisions: [
+      'Quarantine rule enforced automatically upon ingestion.',
+      'Outbound firewall rules updated to block malicious phishing URL.'
+    ],
+    actionItems: [
+      { task: 'Permanently shred and add domain to global blocklist', assignee: 'SecOps Sentry', dueSuggestion: 'Immediate' }
+    ],
+    unresolvedQuestions: [
+      'Did any internal user click the credential link prior to quarantine?'
+    ],
+    priorityTier: 'LOW',
+    priorityScore: 0.05,
+    priorityReason: 'Content-Based Spam Shield: Detected credential phishing, domain homograph, and failed SPF/DKIM.',
+    suggestedAction: 'Keep in quarantine and block sender domain.',
+    modelUsed: 'gemini-1.5-flash',
+    generatedAt: new Date().toISOString()
+  }
+};
+
+const INITIAL_DEMO_FOLLOWUPS: FollowUpReminderDTO[] = [
+  {
+    id: 'followup-1',
+    userId: 'user-demo-1',
+    threadId: 'thread-urgent-1',
+    threadSubject: '[URGENT P0] Production Database Failover & Replication Lag Spike',
+    dueAt: new Date(Date.now() + 1000 * 60 * 60 * 2).toISOString(),
+    condition: 'NO_REPLY_RECEIVED',
+    status: 'PENDING',
+    note: 'Awaiting confirmation on PostgreSQL replica promotion before 2 PM peak',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'followup-2',
+    userId: 'user-demo-1',
+    threadId: 'thread-important-1',
+    threadSubject: 'Enterprise Master Services Agreement (MSA) Q4 Renewal Terms',
+    dueAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+    condition: 'NO_REPLY_RECEIVED',
+    status: 'PENDING',
+    note: 'Follow up with Ralph Edwards on MSA Section 4.2 redlines',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'followup-3',
+    userId: 'user-demo-1',
+    threadId: 'thread-important-2',
+    threadSubject: 'Series B Investment Syndicate Allocation & Board Observer Charter',
+    dueAt: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString(),
+    condition: 'NO_REPLY_RECEIVED',
+    status: 'PENDING',
+    note: 'Review Series B board observer charter with Esther Howard',
+    createdAt: new Date().toISOString()
+  }
+];
+
 const INITIAL_DEMO_NOTIFICATIONS: NotificationItem[] = [
   {
-    id: 'demo-notif-1',
-    userId: 'user-1',
-    type: 'FOLLOW_UP_DUE',
-    title: 'Follow-Up Due',
-    message: "Follow-up due: 'Q4 Enterprise Infrastructure Migration & Zero-Downtime Strategy'",
-    threadId: 'thread-1',
+    id: 'notif-1',
+    userId: 'user-demo-1',
+    type: 'THREAD_PRIORITY_ESCALATED',
+    title: 'Urgent Thread Escalated',
+    message: "Thread '[URGENT P0] Database Failover' escalated to 98% priority score.",
+    threadId: 'thread-urgent-1',
     isRead: false,
     createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
   },
   {
-    id: 'demo-notif-2',
-    userId: 'user-1',
-    type: 'AI_SUMMARY_READY',
-    title: 'AI Intelligence Summary',
-    message: "Executive brief generated with 2 action items identified.",
-    threadId: 'thread-1',
+    id: 'notif-2',
+    userId: 'user-demo-1',
+    type: 'SECURITY_ALERT',
+    title: 'Spam & Phishing Blocked',
+    message: "Inbound message from 'security-alert@paypaI-secure-login.net' quarantined.",
+    threadId: 'thread-spam-1',
     isRead: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
   },
 ];
 
 export const useMailStore = create<MailState>((set, get) => ({
   currentFolder: 'inbox',
-  selectedThreadId: 'thread-eos-1',
+  selectedThreadId: 'thread-urgent-1',
   threads: INITIAL_DEMO_THREADS,
   searchQuery: '',
   searchResults: [],
@@ -637,10 +828,10 @@ export const useMailStore = create<MailState>((set, get) => ({
   isComposeOpen: false,
   isAIThinking: false,
   isLoadingThreads: false,
-  threadSummaries: {},
+  threadSummaries: INITIAL_DEMO_SUMMARIES,
   isLoadingSummary: false,
-  activeFollowUps: [],
-  activeThreadFollowUp: null,
+  activeFollowUps: INITIAL_DEMO_FOLLOWUPS,
+  activeThreadFollowUp: INITIAL_DEMO_FOLLOWUPS[0],
   notifications: INITIAL_DEMO_NOTIFICATIONS,
   unreadNotificationsCount: 2,
   isNotificationsOpen: false,
@@ -651,9 +842,14 @@ export const useMailStore = create<MailState>((set, get) => ({
     set({ currentFolder: folder, selectedThreadId: null });
     get().fetchThreads(folder);
   },
+
   setSelectedThreadId: (id) => {
-    set({ selectedThreadId: id, activeThreadFollowUp: null });
+    set({ selectedThreadId: id });
     if (id) {
+      // Find matching follow-up if present
+      const followUp = get().activeFollowUps.find((f) => f.threadId === id) || null;
+      set({ activeThreadFollowUp: followUp });
+
       if (!id.startsWith('thread-')) {
         get().fetchThreadDetail(id);
         get().fetchThreadFollowUp(id);
@@ -663,6 +859,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   },
 
   setThreads: (threads) => set({ threads }),
+  
   setSearchQuery: (query) => {
     set({ searchQuery: query });
     if (!query || query.trim() === '') {
@@ -678,25 +875,25 @@ export const useMailStore = create<MailState>((set, get) => ({
       return;
     }
 
-    set({ isSearching: true });
     const token = localStorage.getItem('nextmail_token');
     if (token) {
+      set({ isSearching: true });
       try {
-        const params: Record<string, string> = { q: query.trim() };
-        if (folder) params.folder = folder;
-
-        const res = await apiClient.get<SearchPageResponse>('/search', params);
-        if (res.data?.content) {
+        const folderParam = folder ? `&folder=${folder.toUpperCase()}` : '';
+        const res = await apiClient.get<PageResponse<SearchResultDTO>>(
+          `/search?q=${encodeURIComponent(query)}${folderParam}`
+        );
+        if (res.data) {
           set({
-            searchResults: res.data.content,
-            searchEngine: res.data.executedByEngine,
-            searchTotal: res.data.totalElements,
+            searchResults: res.data.content || [],
+            searchEngine: 'ELASTICSEARCH',
+            searchTotal: res.data.totalElements || 0,
             isSearching: false,
           });
           return;
         }
       } catch (err) {
-        console.warn('Backend search API failed, falling back to local thread filtering', err);
+        console.warn('Backend search unavailable, falling back to local indexing:', err);
       }
     }
 
@@ -705,7 +902,8 @@ export const useMailStore = create<MailState>((set, get) => ({
     const filtered = get().threads.filter(
       (t) =>
         t.subject.toLowerCase().includes(q) ||
-        t.snippet.toLowerCase().includes(q)
+        t.snippet.toLowerCase().includes(q) ||
+        (t.priorityReason && t.priorityReason.toLowerCase().includes(q))
     );
     const mockResults: SearchResultDTO[] = filtered.map((t) => ({
       messageId: t.id,
@@ -714,12 +912,12 @@ export const useMailStore = create<MailState>((set, get) => ({
       snippet: t.snippet,
       highlightedSnippet: t.snippet.replace(
         new RegExp(`(${query})`, 'gi'),
-        '<mark class="bg-amber-400/25 text-amber-200 px-0.5 rounded">$1</mark>'
+        '<mark class="bg-emerald-400/25 text-emerald-900 px-0.5 rounded font-semibold">$1</mark>'
       ),
-      senderEmail: 'colleague@nextmail.local',
-      senderName: 'NextMail Workspace',
-      recipientEmails: ['me@nextmail.local'],
-      folder: 'INBOX',
+      senderEmail: t.messages?.[0]?.sender.email || 'user@nextmail.local',
+      senderName: t.messages?.[0]?.sender.name || 'NextMail Workspace',
+      recipientEmails: ['ops@nextmail.local'],
+      folder: t.isSpam ? 'SPAM' : 'INBOX',
       labels: t.labels || [],
       hasAttachments: t.hasAttachments,
       isStarred: t.isStarred,
@@ -746,7 +944,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   fetchThreads: async (folder) => {
     const targetFolder = folder || get().currentFolder;
     const token = localStorage.getItem('nextmail_token');
-    if (!token) return; // Unauthenticated users see demo fixture threads
+    if (!token) return;
 
     set({ isLoadingThreads: true });
     try {
@@ -763,15 +961,19 @@ export const useMailStore = create<MailState>((set, get) => ({
           lastMessageAt: new Date(t.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           isRead: t.isRead,
           isStarred: t.isStarred,
+          isSpam: t.isSpam,
+          isArchived: t.isArchived,
+          isTrash: t.isTrash,
           priorityTier: t.priorityTier,
           priorityScore: t.priorityScore,
           priorityReason: t.priorityReason,
-          labels: ['Inbox'],
+          labels: t.labels || [],
         }));
-        set({ threads: liveThreads, selectedThreadId: liveThreads[0]?.id || null });
+        set({ threads: liveThreads, isLoadingThreads: false });
+        return;
       }
-    } catch {
-      // Fallback to memory threads on network or empty response
+    } catch (err) {
+      console.warn('Failed to fetch live threads:', err);
     } finally {
       set({ isLoadingThreads: false });
     }
@@ -779,52 +981,52 @@ export const useMailStore = create<MailState>((set, get) => ({
 
   fetchThreadDetail: async (threadId) => {
     const token = localStorage.getItem('nextmail_token');
-    if (!token || threadId.startsWith('thread-')) return;
+    if (!token) return;
 
     try {
       const res = await apiClient.get<ThreadDetailApiResponse>(`/mail/threads/${threadId}`);
       if (res.data) {
-        const d = res.data;
-        const messages: EmailMessage[] = (d.messages || []).map((m) => ({
-          id: m.id,
-          threadId: m.threadId,
-          sender: { name: m.senderName, email: m.senderEmail },
-          recipients: m.recipients.map((r) => ({ name: r.name, email: r.email })),
-          subject: m.subject,
-          snippet: m.bodyText.substring(0, 100),
-          bodyText: m.bodyText,
-          bodyHtml: m.bodyHtml,
-          sentAt: new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          receivedAt: new Date(m.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isRead: m.isRead,
-          isStarred: m.isStarred,
-          isControlled: m.isControlled,
-          expiresAt: m.expiresAt,
-          isExpired: m.isExpired,
-          isRevoked: m.isRevoked,
-          allowForwarding: m.allowForwarding,
-          allowPrinting: m.allowPrinting,
-          watermarkRecipient: m.watermarkRecipient,
-          attachments: (m.attachments || []).map((att) => ({
-            id: att.id,
-            filename: att.filename,
-            contentType: att.detectedContentType || att.declaredContentType || 'application/octet-stream',
-            sizeBytes: att.sizeBytes,
-            sha256: att.sha256,
-            storageEngine: att.storageEngine,
-            isMalicious: att.scanStatus === 'INFECTED',
-          })),
-          securityFlags: {
-            isPhishingRisk: false,
-            spfValid: true,
-            dkimValid: true,
-            suspiciousLinksCount: 0,
-          },
-        }));
-
+        const detail = res.data;
         set((state) => ({
           threads: state.threads.map((t) =>
-            t.id === threadId ? { ...t, messages } : t
+            t.id === threadId
+              ? {
+                  ...t,
+                  messages: detail.messages.map((m) => ({
+                    id: m.id,
+                    threadId: m.threadId,
+                    sender: { name: m.senderName, email: m.senderEmail },
+                    recipients: m.recipients.map((r) => ({ name: r.name, email: r.email })),
+                    subject: m.subject,
+                    snippet: m.bodyText.length > 100 ? m.bodyText.substring(0, 97) + '...' : m.bodyText,
+                    bodyText: m.bodyText,
+                    bodyHtml: m.bodyHtml,
+                    sentAt: new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    receivedAt: new Date(m.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    isRead: m.isRead,
+                    isStarred: m.isStarred,
+                    isControlled: m.isControlled,
+                    expiresAt: m.expiresAt,
+                    isExpired: m.isExpired,
+                    isRevoked: m.isRevoked,
+                    allowForwarding: m.allowForwarding,
+                    allowPrinting: m.allowPrinting,
+                    watermarkRecipient: m.watermarkRecipient,
+                    attachments: (m.attachments || []).map((a) => ({
+                      id: a.id,
+                      filename: a.filename,
+                      contentType: a.detectedContentType,
+                      sizeBytes: a.sizeBytes,
+                    })),
+                    securityFlags: {
+                      isPhishingRisk: false,
+                      spfValid: true,
+                      dkimValid: true,
+                      suspiciousLinksCount: 0,
+                    },
+                  })),
+                }
+              : t
           ),
         }));
       }
@@ -858,8 +1060,33 @@ export const useMailStore = create<MailState>((set, get) => ({
   sendMessage: async (payload) => {
     const token = localStorage.getItem('nextmail_token');
     if (!token) {
-      alert('Please sign in to send live messages');
-      return false;
+      // Demo mode optimistic message send
+      const newMsg = {
+        id: `msg-demo-${Date.now()}`,
+        threadId: payload.threadId || `thread-demo-${Date.now()}`,
+        sender: { name: 'You (Operations)', email: 'admin@nextmail.local' },
+        recipients: payload.to.map((e) => ({ email: e })),
+        subject: payload.subject,
+        snippet: payload.bodyText.substring(0, 100),
+        bodyText: payload.bodyText,
+        sentAt: 'Just now',
+        receivedAt: 'Just now',
+        isRead: true,
+        isStarred: false,
+        attachments: [],
+        securityFlags: { isPhishingRisk: false, spfValid: true, dkimValid: true, suspiciousLinksCount: 0 },
+      };
+
+      if (payload.threadId) {
+        set((state) => ({
+          threads: state.threads.map((t) =>
+            t.id === payload.threadId
+              ? { ...t, messages: [...(t.messages || []), newMsg], lastMessageAt: 'Just now' }
+              : t
+          ),
+        }));
+      }
+      return true;
     }
 
     try {
@@ -876,7 +1103,6 @@ export const useMailStore = create<MailState>((set, get) => ({
         attachmentIds: payload.attachmentIds,
       });
 
-      // Refresh threads from backend
       await get().fetchThreads();
       return true;
     } catch (err: unknown) {
@@ -886,9 +1112,7 @@ export const useMailStore = create<MailState>((set, get) => ({
     }
   },
 
-
   toggleStar: async (threadId) => {
-    // Optimistic UI update
     set((state) => ({
       threads: state.threads.map((t) =>
         t.id === threadId ? { ...t, isStarred: !t.isStarred } : t
@@ -900,7 +1124,6 @@ export const useMailStore = create<MailState>((set, get) => ({
       try {
         await apiClient.patch(`/mail/threads/${threadId}/star`);
       } catch {
-        // Rollback
         set((state) => ({
           threads: state.threads.map((t) =>
             t.id === threadId ? { ...t, isStarred: !t.isStarred } : t
@@ -938,8 +1161,7 @@ export const useMailStore = create<MailState>((set, get) => ({
       try {
         await apiClient.patch(`/mail/threads/${threadId}/archive`);
       } catch {
-        // Refresh
-        get().fetchThreads();
+        // Ignore
       }
     }
   },
@@ -955,13 +1177,38 @@ export const useMailStore = create<MailState>((set, get) => ({
       try {
         await apiClient.delete(`/mail/threads/${threadId}`);
       } catch {
-        get().fetchThreads();
+        // Ignore
+      }
+    }
+  },
+
+  markAsSpam: async (threadId, isSpam) => {
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId
+          ? {
+              ...t,
+              isSpam,
+              priorityTier: isSpam ? 'LOW' : t.priorityTier,
+              priorityReason: isSpam
+                ? 'User flagged as unsolicited spam & moved to quarantine.'
+                : 'Marked as safe by user.',
+            }
+          : t
+      ),
+    }));
+
+    const token = localStorage.getItem('nextmail_token');
+    if (token && !threadId.startsWith('thread-')) {
+      try {
+        await apiClient.patch(`/mail/threads/${threadId}/spam?isSpam=${isSpam}`);
+      } catch {
+        // Handled optimistically
       }
     }
   },
 
   fetchThreadSummary: async (threadId) => {
-    // Return cached if present
     const existing = get().threadSummaries[threadId];
     if (existing) return existing;
 
@@ -984,7 +1231,6 @@ export const useMailStore = create<MailState>((set, get) => ({
       }
     }
 
-    // Demo fallback for mock threads
     const thread = get().threads.find((t) => t.id === threadId);
     if (thread?.aiSummary) {
       const mockSummary: AiSummaryResponse = {
@@ -993,14 +1239,14 @@ export const useMailStore = create<MailState>((set, get) => ({
         keyDecisions: thread.aiSummary.decisions,
         actionItems: thread.aiSummary.actionItems.map((a) => ({
           task: a,
-          assignee: 'Engineering Lead',
-          dueSuggestion: 'Thursday Window',
+          assignee: 'Operations',
+          dueSuggestion: 'Today, 2:00 PM',
         })),
-        unresolvedQuestions: ['Confirm staging replication test window with DBRE team.'],
+        unresolvedQuestions: thread.aiSummary.unresolvedQuestions,
         priorityTier: thread.priorityTier,
         priorityScore: thread.priorityScore,
         priorityReason: thread.priorityReason,
-        suggestedAction: 'Sign off on Patroni failover runbook v2.4 before Thursday.',
+        suggestedAction: 'Review details and execute required operational task.',
         modelUsed: 'gemini-1.5-flash',
         generatedAt: new Date().toISOString(),
       };
@@ -1028,21 +1274,21 @@ export const useMailStore = create<MailState>((set, get) => ({
       }
     }
 
-    // Demo fixture generation
+    // High-context Demo fixture generation
     const thread = get().threads.find((t) => t.id === threadId);
     const sender = thread?.messages?.[0]?.sender.name?.split(' ')[0] || 'there';
     const custom = instructions ? `\n\nRegarding your note: ${instructions}.` : '';
 
     if (tone === 'Concise') {
-      return `Hi ${sender},\n\nReviewed and approved. Ready to proceed with the scheduled rollout.${custom}\n\nThanks,\nAlex`;
+      return `Hi ${sender},\n\nReceived and authorized. We are proceeding with the scheduled window immediately.${custom}\n\nThanks,\nOperations Team`;
     } else if (tone === 'Firm') {
-      return `Hi ${sender},\n\nPlease note that deployment is conditionally approved pending all telemetry tests passing on staging.${custom}\n\nRegards,\nAlex Rivera`;
+      return `Hi ${sender},\n\nPlease be advised that approval is conditionally granted under strict SLA monitoring. Confirm full telemetry validation once live.${custom}\n\nRegards,\nOperations Lead`;
     } else if (tone === 'Friendly') {
-      return `Hey ${sender},\n\nThanks a ton for the detailed update! Everything looks super smooth—looking forward to catching up soon.${custom}\n\nCheers,\nAlex`;
+      return `Hey ${sender},\n\nThanks so much for the swift heads-up! We've reviewed all metrics and everything looks solid to move ahead.${custom}\n\nBest,\nNextMail Operations`;
     } else if (tone === 'Technical') {
-      return `Hi ${sender},\n\nI have reviewed the failover specifications and connection pooling limits. Ensure PgBouncer connection max is capped at 50 per replica during cutover.${custom}\n\nBest regards,\nAlex Rivera`;
+      return `Hi ${sender},\n\nI have reviewed the architecture runbook and cluster lag metrics. Ensure connection pools are drained gracefully before flipping DNS.${custom}\n\nBest regards,\nStaff Infrastructure Lead`;
     } else {
-      return `Hi ${sender},\n\nThank you for the thorough update on '${thread?.subject || 'this project'}'. I have reviewed all attachments and agree with the proposed approach.${custom}\n\nBest regards,\nAlex Rivera`;
+      return `Hi ${sender},\n\nThank you for the detailed briefing regarding '${thread?.subject || 'this task'}'. We have reviewed the action items and confirmed our approval.${custom}\n\nBest regards,\nNextMail Operations`;
     }
   },
 
@@ -1061,7 +1307,11 @@ export const useMailStore = create<MailState>((set, get) => ({
 
   fetchThreadFollowUp: async (threadId: string) => {
     const token = localStorage.getItem('nextmail_token');
-    if (!token || threadId.startsWith('thread-')) return null;
+    if (!token || threadId.startsWith('thread-')) {
+      const followUp = get().activeFollowUps.find((f) => f.threadId === threadId) || null;
+      set({ activeThreadFollowUp: followUp });
+      return followUp;
+    }
     try {
       const res = await apiClient.get<FollowUpReminderDTO>(`/workflow/followups/thread/${threadId}`);
       if (res.data) {
@@ -1077,10 +1327,27 @@ export const useMailStore = create<MailState>((set, get) => ({
 
   createFollowUp: async (payload) => {
     const token = localStorage.getItem('nextmail_token');
-    if (!token) {
-      alert('Please sign in to schedule follow-up reminders');
-      return null;
+    if (!token || payload.threadId.startsWith('thread-')) {
+      // Local optimistic follow-up creation
+      const hours = payload.durationHours || 24;
+      const newFollowUp: FollowUpReminderDTO = {
+        id: `followup-mock-${Date.now()}`,
+        userId: 'current-user',
+        threadId: payload.threadId,
+        threadSubject: get().threads.find((t) => t.id === payload.threadId)?.subject || 'Follow-up Task',
+        dueAt: payload.dueAt || new Date(Date.now() + 1000 * 60 * 60 * hours).toISOString(),
+        condition: payload.condition || 'NO_REPLY_RECEIVED',
+        status: 'PENDING',
+        note: payload.note || 'Scheduled priority task',
+        createdAt: new Date().toISOString(),
+      };
+      set((state) => ({
+        activeFollowUps: [...state.activeFollowUps.filter((f) => f.threadId !== payload.threadId), newFollowUp],
+        activeThreadFollowUp: newFollowUp,
+      }));
+      return newFollowUp;
     }
+
     try {
       const res = await apiClient.post<FollowUpReminderDTO>('/workflow/followups', {
         threadId: payload.threadId,
@@ -1103,7 +1370,23 @@ export const useMailStore = create<MailState>((set, get) => ({
 
   snoozeFollowUp: async (id, additionalHours) => {
     const token = localStorage.getItem('nextmail_token');
-    if (!token) return false;
+    if (!token || id.startsWith('followup-mock-') || id.startsWith('followup-')) {
+      set((state) => {
+        const updated = state.activeFollowUps.map((f) =>
+          f.id === id
+            ? {
+                ...f,
+                dueAt: new Date(new Date(f.dueAt).getTime() + 1000 * 60 * 60 * additionalHours).toISOString(),
+                status: 'SNOOZED' as FollowUpStatus,
+              }
+            : f
+        );
+        const current = updated.find((f) => f.id === id) || null;
+        return { activeFollowUps: updated, activeThreadFollowUp: current };
+      });
+      return true;
+    }
+
     try {
       const res = await apiClient.post<FollowUpReminderDTO>(`/workflow/followups/${id}/snooze`, {
         additionalHours,
@@ -1122,7 +1405,14 @@ export const useMailStore = create<MailState>((set, get) => ({
 
   dismissFollowUp: async (id) => {
     const token = localStorage.getItem('nextmail_token');
-    if (!token) return false;
+    if (!token || id.startsWith('followup-mock-') || id.startsWith('followup-')) {
+      set((state) => ({
+        activeFollowUps: state.activeFollowUps.filter((f) => f.id !== id),
+        activeThreadFollowUp: null,
+      }));
+      return true;
+    }
+
     try {
       await apiClient.delete(`/workflow/followups/${id}`);
       set({ activeThreadFollowUp: null });
@@ -1161,55 +1451,40 @@ export const useMailStore = create<MailState>((set, get) => ({
     }
   },
 
-  markNotificationRead: async (id: string) => {
+  markNotificationRead: async (id) => {
+    set((state) => ({
+      notifications: state.notifications.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1),
+    }));
+
     const token = localStorage.getItem('nextmail_token');
-    if (!token) {
-      // Local/demo update
-      set((state) => ({
-        notifications: state.notifications.map((n) =>
-          n.id === id ? { ...n, isRead: true } : n
-        ),
-        unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1),
-      }));
-      return;
-    }
-    try {
-      await apiClient.patch(`/notifications/${id}/read`);
-      set((state) => ({
-        notifications: state.notifications.map((n) =>
-          n.id === id ? { ...n, isRead: true } : n
-        ),
-        unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1),
-      }));
-    } catch (err) {
-      console.warn('Failed to mark notification as read:', err);
+    if (token) {
+      try {
+        await apiClient.patch(`/notifications/${id}/read`);
+      } catch {
+        // Rollback not critical
+      }
     }
   },
 
   markAllNotificationsRead: async () => {
     const token = localStorage.getItem('nextmail_token');
-    if (!token) {
-      set((state) => ({
-        notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
-        unreadNotificationsCount: 0,
-      }));
-      return;
+    if (token) {
+      try {
+        await apiClient.post('/notifications/mark-all-read');
+      } catch {
+        // Ignore
+      }
     }
-    try {
-      await apiClient.post('/notifications/mark-all-read');
-      set((state) => ({
-        notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
-        unreadNotificationsCount: 0,
-      }));
-    } catch (err) {
-      console.warn('Failed to mark all notifications as read:', err);
-    }
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
+      unreadNotificationsCount: 0,
+    }));
   },
 
   initializeWebSocket: (userId: string, token: string) => {
     webSocketService.connect(token);
 
-    // 1. Live Notification stream
     const unsubNotifications = webSocketService.subscribe(
       `/topic/user/${userId}/notifications`,
       (notification: NotificationItem) => {
@@ -1220,7 +1495,6 @@ export const useMailStore = create<MailState>((set, get) => ({
       }
     );
 
-    // 2. Silent Inbox auto-refresh signal
     const unsubInbox = webSocketService.subscribe(
       `/topic/user/${userId}/inbox`,
       (signal: { action?: string; threadId?: string }) => {
@@ -1251,7 +1525,6 @@ export const useMailStore = create<MailState>((set, get) => ({
         reason: reason || 'Sender revoked access on demand',
       });
       if (res.data) {
-        // Optimistically update message in threads
         set((state) => ({
           threads: state.threads.map((t) => ({
             ...t,
@@ -1302,4 +1575,3 @@ export const useMailStore = create<MailState>((set, get) => ({
     }
   },
 }));
-

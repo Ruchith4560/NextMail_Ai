@@ -4,23 +4,23 @@
 
 @layer base {
   * {
-    border-color: #DFD5C4;
+    border-color: #EAECF0;
   }
   body {
-    background-color: #F5EFE6;
-    color: #2C241E;
+    background-color: #F8FAFC;
+    color: #0F172A;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
   ::selection {
-    background-color: #E6D2C6;
-    color: #2C241E;
+    background-color: #D1FAE5;
+    color: #065F46;
   }
 }
 
-/* Custom warm parchment scrollbars */
+/* Modern subtle SaaS scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -28,10 +28,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D4C7B7;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #BFAEA0;
+  background: #94A3B8;
 }

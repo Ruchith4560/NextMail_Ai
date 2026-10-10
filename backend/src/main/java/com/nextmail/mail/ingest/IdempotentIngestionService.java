@@ -27,6 +27,11 @@ public class IdempotentIngestionService {
     private final ApplicationEventPublisher eventPublisher;
     private final Optional<com.nextmail.common.metrics.NextMailMetrics> metrics;
 
+    private static final java.util.regex.Pattern SPAM_PATTERN = java.util.regex.Pattern.compile(
+            "\\b(lottery|winner|inherited|wire transfer|cryptocurrency|crypto arbitrage|usdt|verify password|account suspended|frozen balance|unauthorized login|claim your prize|guaranteed return|send btc|homograph)\\b",
+            java.util.regex.Pattern.CASE_INSENSITIVE
+    );
+
     @Transactional
     public Message ingestEmail(UUID userId, NormalizedEmail normalized) {
         String messageId = normalized.getMessageIdHeader();
@@ -41,6 +46,8 @@ public class IdempotentIngestionService {
         // 2. Prepare snippet for thread list preview
         String rawBody = normalized.getBodyText() != null ? normalized.getBodyText() : "";
         String snippet = rawBody.length() > 140 ? rawBody.substring(0, 137) + "..." : rawBody;
+        String contentToScan = (normalized.getSubject() != null ? normalized.getSubject() : "") + " " + rawBody;
+        boolean isSpamDetected = SPAM_PATTERN.matcher(contentToScan).find();
 
         // 3. Resolve or link into thread via JWZ Threading Engine
         Thread thread = threadingService.resolveOrCreateThread(
@@ -52,6 +59,12 @@ public class IdempotentIngestionService {
                 normalized.getReceivedAt(),
                 normalized.isHasAttachments()
         );
+
+        if (isSpamDetected) {
+            thread.setSpam(true);
+            thread.setPriorityTier(com.nextmail.thread.PriorityTier.LOW);
+            thread.setPriorityReason("Content-Based Spam Shield: Flagged as high-risk solicitation or phishing.");
+        }
 
         // 4. Create and persist Message entity
         Message message = Message.builder()
@@ -70,7 +83,7 @@ public class IdempotentIngestionService {
                 .isRead(false)
                 .isStarred(false)
                 .isControlled(false)
-                .folder(MailFolder.INBOX)
+                .folder(isSpamDetected ? MailFolder.SPAM : MailFolder.INBOX)
                 .hasAttachments(normalized.isHasAttachments())
                 .build();
 

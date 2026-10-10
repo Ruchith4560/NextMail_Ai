@@ -95,6 +95,16 @@ public class MailController {
         return ResponseEntity.ok(ApiResponse.ok("Thread moved to trash", null));
     }
 
+    @PatchMapping("/threads/{id}/spam")
+    public ResponseEntity<ApiResponse<Void>> toggleSpam(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "true") boolean isSpam
+    ) {
+        mailService.setThreadSpam(userDetails.getId(), id, isSpam);
+        return ResponseEntity.ok(ApiResponse.ok("Thread spam status updated", null));
+    }
+
     @PostMapping("/drafts")
     public ResponseEntity<ApiResponse<Draft>> saveDraft(
             @AuthenticationPrincipal CustomUserDetails userDetails,

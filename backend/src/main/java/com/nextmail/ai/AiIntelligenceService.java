@@ -68,6 +68,11 @@ public class AiIntelligenceService {
             Pattern.CASE_INSENSITIVE
     );
 
+    private static final Pattern SPAM_PATTERN = Pattern.compile(
+            "\\b(lottery|winner|inherited|wire transfer|cryptocurrency|crypto arbitrage|usdt|verify password|account suspended|frozen balance|unauthorized login|claim your prize|guaranteed return|send btc|homograph)\\b",
+            Pattern.CASE_INSENSITIVE
+    );
+
     /**
      * Generates or fetches structured conversation summary for a thread.
      */
@@ -101,6 +106,9 @@ public class AiIntelligenceService {
         thread.setPriorityTier(generated.getPriorityTier());
         thread.setPriorityScore(generated.getPriorityScore());
         thread.setPriorityReason(generated.getPriorityReason());
+        if (generated.getPriorityReason() != null && generated.getPriorityReason().contains("Spam Shield")) {
+            thread.setSpam(true);
+        }
         threadRepository.save(thread);
 
         // Upsert ThreadSummary entity
@@ -267,7 +275,11 @@ public class AiIntelligenceService {
         double score = 0.5;
         String reason = "Routine communication within standard response window.";
 
-        if (URGENT_PATTERN.matcher(fullText).find()) {
+        if (SPAM_PATTERN.matcher(fullText).find()) {
+            tier = PriorityTier.LOW;
+            score = 0.05;
+            reason = "Content-Based Spam Shield: Detected high-risk solicitation, credential phishing, or fraudulent patterns.";
+        } else if (URGENT_PATTERN.matcher(fullText).find()) {
             tier = PriorityTier.URGENT;
             score = 0.95;
             reason = "Detected urgent operational keywords or critical deadlines.";

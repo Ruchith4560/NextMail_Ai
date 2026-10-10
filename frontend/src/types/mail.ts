@@ -1,6 +1,13 @@
 export type MailboxFolder = 'inbox' | 'sent' | 'drafts' | 'archive' | 'trash' | 'spam' | 'starred';
 
-export type PriorityTier = 'URGENT' | 'IMPORTANT' | 'NORMAL' | 'LOW';
+export const PriorityTier = {
+  URGENT: 'URGENT',
+  IMPORTANT: 'IMPORTANT',
+  NORMAL: 'NORMAL',
+  LOW: 'LOW',
+} as const;
+
+export type PriorityTier = (typeof PriorityTier)[keyof typeof PriorityTier];
 
 export interface EmailAddress {
   name?: string;
@@ -62,6 +69,9 @@ export interface EmailThread {
   lastMessageAt: string;
   isRead: boolean;
   isStarred: boolean;
+  isSpam?: boolean;
+  isArchived?: boolean;
+  isTrash?: boolean;
   priorityTier: PriorityTier;
   priorityScore: number;
   priorityReason: string;

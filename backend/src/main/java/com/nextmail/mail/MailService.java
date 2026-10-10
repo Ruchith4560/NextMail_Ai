@@ -230,6 +230,14 @@ public class MailService {
     }
 
     @Transactional
+    public void setThreadSpam(UUID userId, UUID threadId, boolean isSpam) {
+        Thread thread = threadRepository.findByIdAndUserId(threadId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Thread not found"));
+        thread.setSpam(isSpam);
+        threadRepository.save(thread);
+    }
+
+    @Transactional
     public Draft saveDraft(UUID userId, SaveDraftRequest request) {
         Draft draft;
         if (request.getId() != null) {

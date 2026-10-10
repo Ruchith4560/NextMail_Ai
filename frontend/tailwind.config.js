@@ -8,52 +8,43 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: {
-          DEFAULT: '#F5EFE6', // Warm parchment canvas
-          secondary: '#EFE8DC', // Sidebar & cards
-          tertiary: '#E5DCCF', // Input fields, active pills
-          dark: '#24302E', // Deep forest bronze window header
+        mojo: {
+          sidebar: '#0E1318',
+          sidebarHover: '#161E26',
+          sidebarActive: '#1A2530',
+          green: '#00D084',
+          greenHover: '#00B874',
+          greenLight: '#E6FAF2',
+          canvas: '#F8FAFC',
+          card: '#FFFFFF',
+          border: '#EAECF0',
+          borderDark: '#1E293B',
+          ink: '#0F172A',
+          inkMuted: '#64748B',
+          inkLight: '#94A3B8',
         },
-        surface: {
-          DEFAULT: '#FAF7F0', // Message reading surface
-          hover: '#ECE4D7',
-          active: '#E4D8C6',
-          border: '#DFD5C4',
-          sage: '#D2DCD0', // Sage green search & badges
-          sageDark: '#4F614B',
-        },
-        terracotta: {
-          DEFAULT: '#A85338',
-          light: '#BF6347',
-          dark: '#8B3F27',
-          tint: '#F5EAE5',
-        },
-        forest: {
-          DEFAULT: '#283533',
-          dark: '#1F2B29',
-          light: '#364543',
-        },
-        ink: {
-          primary: '#2C241E',
-          secondary: '#726558',
-          muted: '#9E9184',
-        },
-        primary: {
-          50: '#F5EAE5',
-          100: '#EBD5CD',
-          500: '#A85338',
-          600: '#8E3F27',
-          700: '#75321E',
-        },
-        accent: {
-          ai: '#A85338',
-          urgent: '#C04A2F',
-          important: '#C57E35',
-          secure: '#4F614B',
+        priority: {
+          urgentBg: '#FEF2F2',
+          urgentText: '#DC2626',
+          urgentBorder: '#FECACA',
+          importantBg: '#FFFBEB',
+          importantText: '#D97706',
+          importantBorder: '#FDE68A',
+          normalBg: '#F1F5F9',
+          normalText: '#475569',
+          normalBorder: '#E2E8F0',
+          spamBg: '#FFF1F2',
+          spamText: '#E11D48',
+          spamBorder: '#FECDD3',
+          aiBg: '#ECFDF5',
+          aiText: '#059669',
+          aiBorder: '#A7F3D0',
+          taskBg: '#F5F3FF',
+          taskText: '#7C3AED',
+          taskBorder: '#DDD6FE',
         }
       },
       fontFamily: {
-        serif: ['Newsreader', 'Playfair Display', 'Cormorant Garamond', 'Georgia', 'serif'],
         sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },

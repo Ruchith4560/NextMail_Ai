@@ -56,6 +56,10 @@ export const AppLayout: React.FC = () => {
         if (currentIndex > 0) {
           setSelectedThreadId(threads[currentIndex - 1].id);
         }
+      } else if (e.key === 'Escape') {
+        if (selectedThreadId) {
+          setSelectedThreadId(null);
+        }
       }
     };
 
@@ -64,13 +68,28 @@ export const AppLayout: React.FC = () => {
   }, [threads, selectedThreadId, setComposeOpen, setSelectedThreadId]);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#F5EFE6] text-[#2C241E] overflow-hidden font-sans">
+    <div className="h-screen w-screen flex flex-col bg-[#F8FAFC] text-[#0F172A] overflow-hidden font-sans">
       <Header />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
-        <main className="flex-1 flex overflow-hidden">
-          <InboxView />
-          <ThreadView />
+        <main className="flex-1 flex overflow-hidden relative">
+          {/* Inbox View: Full width when no thread is selected; collapses to split master column on large screens when thread is selected */}
+          <div 
+            className={`h-full overflow-hidden transition-all duration-200 ${
+              selectedThreadId 
+                ? 'hidden lg:block lg:w-[420px] xl:w-[480px] border-r border-[#EAECF0] flex-shrink-0' 
+                : 'w-full'
+            }`}
+          >
+            <InboxView />
+          </div>
+
+          {/* Thread Reader Pane: visible when a thread is selected */}
+          {selectedThreadId && (
+            <div className="flex-1 h-full min-w-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
+              <ThreadView onBack={() => setSelectedThreadId(null)} />
+            </div>
+          )}
         </main>
       </div>
       <ComposeModal />

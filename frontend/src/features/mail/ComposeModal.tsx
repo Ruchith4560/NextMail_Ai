@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, Send, Lock, Paperclip, Sparkles, Minus, Square } from 'lucide-react';
+import { X, Send, Lock, Paperclip, Sparkles, Flame, Star } from 'lucide-react';
 import { useMailStore } from '../../store/mailStore';
+import { PriorityTier } from '../../types/mail';
 
 interface UploadedFile {
   id: string;
@@ -11,21 +12,24 @@ interface UploadedFile {
 
 export const ComposeModal: React.FC = () => {
   const { isComposeOpen, setComposeOpen, sendMessage, uploadAttachment } = useMailStore();
-  const [to, setTo] = useState('alex.r@velisart.com');
-  const [subject, setSubject] = useState('RE: Alcade Exclusive - Autumn Fine Art Collection');
+  const [to, setTo] = useState('alex.chen@enterprise.io');
+  const [subject, setSubject] = useState('Project Rollout & Security Milestone Review');
+  const [priorityTier, setPriorityTier] = useState<PriorityTier>(PriorityTier.IMPORTANT);
   const [body, setBody] = useState(
-`Dear Alex,
+`Hi Alex,
 
-I have reviewed the preliminary catalog for the Autumn collection. The curation is exceptional, particularly the emphasis on emerging abstract expressionists.
+Following up on our sprint review, please find below the updated milestones and deployment checklist. 
 
-I am interested in securing a private viewing. Please let me know your availability for a call.
+Key Action Items:
+1. Complete staging verification before 5:00 PM today.
+2. Sign the security compliance addendum.
+3. Confirm final rollback plan with devops.
 
-Sincerely,
-Alex.r Svantor
-President Iniadal - Alcade Mall
-Signature Block`
+Let me know if you need any clarification.
+
+Best regards,
+NextMail Operations Team`
   );
-  const [showArtworkPreview, setShowArtworkPreview] = useState(true);
   const [isControlled, setIsControlled] = useState(false);
   const [expiryHours] = useState('48');
   const [isSending, setIsSending] = useState(false);
@@ -85,101 +89,131 @@ Signature Block`
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
-      <div className="w-full max-w-xl bg-[#FAF7F2] border border-[#DFD5C4] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-        {/* Header Bar matching "New Message - Eos Mail" from image */}
-        <div className="px-4 py-3 bg-[#283533] border-b border-[#1E2927] flex items-center justify-between text-[#FAF7F0] select-none">
-          <div className="flex items-center gap-2">
-            <h2 className="font-serif text-sm font-medium tracking-wide text-[#FAF7F0]">
-              New Message - Eos Mail
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="w-full max-w-xl bg-white border border-[#EAECF0] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+        {/* Header Bar */}
+        <div className="px-5 py-4 bg-[#0E1318] border-b border-[#232B32] flex items-center justify-between text-white select-none">
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-lg bg-[#00D084]/20 flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-[#00D084]" />
+            </div>
+            <h2 className="text-sm font-bold text-white tracking-wide">
+              New Smart Message — NextMail AI
             </h2>
             {isControlled && (
-              <span className="flex items-center gap-1 text-[9px] text-[#A6C5A2] bg-[#3B4D49] px-1.5 py-0.5 rounded font-mono">
+              <span className="flex items-center gap-1 text-[10px] text-[#00D084] bg-emerald-950/60 px-2 py-0.5 rounded-full font-mono border border-emerald-800">
                 <Lock className="w-2.5 h-2.5" />
-                <span>E2EE</span>
+                <span>Zero-Trust E2EE</span>
               </span>
             )}
           </div>
-          {/* Window control buttons */}
-          <div className="flex items-center gap-3 text-[#A8B5B2]">
-            <button className="hover:text-white transition-colors cursor-pointer" title="Minimize">
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <button className="hover:text-white transition-colors cursor-pointer" title="Maximize">
-              <Square className="w-3 h-3" />
-            </button>
+
+          <div className="flex items-center gap-3 text-[#94A3B8]">
             <button
               onClick={() => setComposeOpen(false)}
               className="hover:text-white transition-colors cursor-pointer"
               title="Close"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Inputs */}
-        <div className="p-4 space-y-3 bg-[#FAF7F2]">
-          {/* To field with avatar pill */}
-          <div className="flex items-center border-b border-[#DFD5C4] pb-2 text-xs">
-            <span className="text-[#7D6F61] font-medium w-10">To:</span>
-            <div className="flex-1 flex items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 bg-[#EBE2D4] border border-[#D5C9B7] rounded-full px-2.5 py-0.5 text-xs text-[#2C241E]">
-                <div className="w-4 h-4 rounded-full bg-[#A85338] text-white text-[9px] font-bold flex items-center justify-center">
-                  A
-                </div>
-                <span>{to}</span>
-              </div>
-              <input
-                type="text"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="flex-1 bg-transparent text-xs text-[#2C241E] focus:outline-none"
-              />
+        {/* Priority Selector & Inputs */}
+        <div className="p-5 space-y-4 bg-white">
+          {/* Priority Pill Selector */}
+          <div className="flex items-center justify-between text-xs pb-2 border-b border-[#EAECF0]">
+            <span className="text-[#64748B] font-medium">Priority Level:</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPriorityTier(PriorityTier.URGENT)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  priorityTier === PriorityTier.URGENT
+                    ? 'bg-rose-50 text-rose-700 border border-rose-300 ring-2 ring-rose-100'
+                    : 'bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5 text-rose-600 fill-rose-500" />
+                <span>Urgent</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPriorityTier(PriorityTier.IMPORTANT)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  priorityTier === PriorityTier.IMPORTANT
+                    ? 'bg-amber-50 text-amber-700 border border-amber-300 ring-2 ring-amber-100'
+                    : 'bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
+                }`}
+              >
+                <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                <span>Important</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPriorityTier(PriorityTier.NORMAL)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                  priorityTier === PriorityTier.NORMAL
+                    ? 'bg-slate-100 text-slate-800 border border-slate-300 ring-2 ring-slate-100'
+                    : 'bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:bg-[#F1F5F9]'
+                }`}
+              >
+                <span>Normal</span>
+              </button>
             </div>
           </div>
 
+          {/* To field */}
+          <div className="flex items-center border-b border-[#EAECF0] pb-2 text-xs">
+            <span className="text-[#64748B] font-semibold w-12">To:</span>
+            <input
+              type="text"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="recipient@company.com"
+              className="flex-1 bg-transparent text-xs text-[#0F172A] focus:outline-none font-medium"
+            />
+          </div>
+
           {/* Subject Line */}
-          <div className="border-b border-[#DFD5C4] pb-2 text-xs flex items-center">
+          <div className="flex items-center border-b border-[#EAECF0] pb-2 text-xs">
+            <span className="text-[#64748B] font-semibold w-12">Subject:</span>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Subject..."
-              className="w-full bg-transparent text-xs font-medium text-[#2C241E] focus:outline-none"
+              className="flex-1 bg-transparent text-xs font-semibold text-[#0F172A] focus:outline-none"
             />
           </div>
 
           {/* Message Body */}
-          <div className="space-y-3">
+          <div>
             <textarea
-              rows={6}
+              rows={7}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Write your message..."
-              className="w-full bg-transparent text-xs text-[#2C241E] leading-relaxed resize-none focus:outline-none placeholder-[#A39485]"
+              placeholder="Write your email content..."
+              className="w-full bg-[#F8FAFC] p-4 rounded-xl border border-[#EAECF0] text-xs text-[#0F172A] leading-relaxed resize-none focus:outline-none focus:border-[#00D084] focus:bg-white transition-all placeholder-[#94A3B8]"
             />
-
-            {/* Embedded Artwork Card (like in screenshot) */}
-            {showArtworkPreview && (
-              <div className="border border-[#DFD5C4] rounded-xl p-3 bg-[#F4EFE6] relative group">
-                <button
-                  onClick={() => setShowArtworkPreview(false)}
-                  className="absolute top-2 right-2 text-[#7D6F61] hover:text-[#2C241E] cursor-pointer"
-                  title="Remove image"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-                <div className="w-48 h-28 rounded-lg overflow-hidden border border-[#D5C9B7] shadow-xs bg-gradient-to-tr from-[#1B365D] via-[#8B4513] to-[#D4AF37] relative flex items-center justify-center">
-                  <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'linear-gradient(45deg, #1A365D 25%, #A85338 50%, #C99700 75%)' }}></div>
-                  <span className="relative z-10 text-[10px] text-white font-serif italic drop-shadow-md">Autumn Collection</span>
-                </div>
-                <p className="font-serif text-xs font-medium text-[#2C241E] mt-2">
-                  Proposed Piece 3: "Luminous Tides"
-                </p>
-              </div>
-            )}
           </div>
+
+          {/* Attachments List */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#F1F5F9] border border-[#E2E8F0] text-[11px] text-[#334155]"
+                >
+                  <Paperclip className="w-3 h-3 text-[#00D084]" />
+                  <span className="truncate max-w-[150px]">{att.filename}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Hidden File Input */}
@@ -192,48 +226,42 @@ Signature Block`
         />
 
         {/* Footer Actions */}
-        <div className="px-4 py-3 bg-[#EFE8DC] border-t border-[#DFD5C4] flex items-center justify-between text-xs">
+        <div className="px-5 py-3.5 bg-[#F8FAFC] border-t border-[#EAECF0] flex items-center justify-between text-xs">
           <div className="flex items-center gap-3">
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex items-center gap-1.5 text-[#5C5044] hover:text-[#2C241E] cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 text-[#475569] hover:text-[#0F172A] cursor-pointer transition-colors"
             >
-              <Paperclip className="w-3.5 h-3.5 text-[#A85338]" />
-              <span>Attach</span>
+              <Paperclip className="w-3.5 h-3.5 text-[#00D084]" />
+              <span>{isUploading ? 'Uploading...' : 'Attach File'}</span>
             </button>
+
             <button
               onClick={() => setIsControlled(!isControlled)}
               className={`flex items-center gap-1.5 cursor-pointer transition-colors ${
-                isControlled ? 'text-[#3E5C38] font-semibold' : 'text-[#5C5044] hover:text-[#2C241E]'
+                isControlled ? 'text-emerald-700 font-bold' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>{isControlled ? 'Encrypted' : 'Standard'}</span>
-            </button>
-            <button
-              onClick={() => setShowArtworkPreview(!showArtworkPreview)}
-              className="flex items-center gap-1.5 text-[#A85338] hover:text-[#8E3F27] cursor-pointer transition-colors font-medium"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{showArtworkPreview ? 'Artwork Card Active' : 'Add Artwork Card'}</span>
+              <span>{isControlled ? 'Encrypted (E2EE)' : 'Standard'}</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setComposeOpen(false)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#7D6F61] hover:text-[#2C241E] cursor-pointer"
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:bg-[#E2E8F0] transition-colors cursor-pointer"
             >
-              Cancel
+              Discard
             </button>
             <button
               onClick={handleSend}
               disabled={isSending || isUploading}
-              className="flex items-center gap-1.5 bg-[#A85338] hover:bg-[#8E3F27] text-white font-medium text-xs px-4 py-1.5 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 bg-[#00D084] hover:bg-[#00BA76] text-black font-bold text-xs px-5 py-2 rounded-xl shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-50"
             >
-              <span>{isSending ? 'Sending...' : 'Send'}</span>
-              <Send className="w-3 h-3" />
+              <span>{isSending ? 'Sending...' : 'Send Message'}</span>
+              <Send className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
